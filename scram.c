@@ -14,6 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -77,24 +78,36 @@ int scram_client_first(char* username, char **result, char **client_nonce) {
 }
 
 int scram_parse_client_first(char *client_first, char **first_char, char **username, char **client_nonce) {
-    int found_user = 0;
-    int found_nonce = 0;
-    char *strbegin, *strparts, *token, *buf;
     if (!strlen(client_first)) {
         return SCRAM_FAIL;
     }
+    int found_user = 0;
+    int found_nonce = 0;
+    char *strbegin, *strparts, *token, *buf;
+    size_t out_len;
+    char *decode_client_first = (char *)base64_decode((unsigned char *)client_first, strlen(client_first), &out_len);
     *first_char = malloc(2);
     *first_char[1] = '\0';
-    memcpy(*first_char, client_first, 1);
-    strbegin = strparts = strdup(client_first);
+    memcpy(*first_char, decode_client_first, 1);
+    strbegin = strparts = strdup(decode_client_first);
     while ((token = strsep(&strparts, ",")) != NULL) {
-        buf = strncpy(buf, token, 2);
+        buf = malloc(3);
+        buf[2] = '\0';
+        strncpy(buf, token, 2);
         if (strcmp(buf, "n=") == 0) {
+            printf("Found username\n");
             found_user = 1;
+            int username_len = strlen(token) - 1;
+            *username = malloc(username_len);
+            *username[username_len-1] = '\0';
             strcpy(*username, token + 2);
         }
         if (strcmp(buf, "r=") == 0) {
+            printf("Found nonce\n");
             found_nonce = 1;
+            int client_nonce_len = strlen(token) - 1;
+            *client_nonce = malloc(client_nonce_len);
+            *client_nonce[client_nonce_len-1] = '\0';
             strcpy(*client_nonce, token + 2);
         }
         free(buf);
@@ -129,7 +142,7 @@ int scram_client_final(char **result) {
 }
 
 int scram_server_final(char **result) {
-    return(SCRAM_OK);
+    return SCRAM_OK;
 }
 
 
