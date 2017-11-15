@@ -20,8 +20,8 @@
 #include <ctype.h>
 
 #include "base64/base64.h"
-#include "hmac_sha1.h"
-#include "pkcs5_pbkdf2.h"
+#include "crypto/hmac_sha1.h"
+#include "crypto/pkcs5_pbkdf2.h"
 #include "scram.h"
 
 #define NONCE_SIZE 18

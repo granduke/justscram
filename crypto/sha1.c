@@ -23,7 +23,7 @@
 #include <strings.h>
 
 #include "sha1.h"
-#include "compat.h"
+#include "../compat/compat.h"
 
 #define rol(value, bits) (((value) << (bits)) | ((value) >> (32 - (bits))))
 

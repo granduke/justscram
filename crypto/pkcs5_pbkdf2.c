@@ -23,7 +23,7 @@
 #include <util.h>
 
 #include "sha1.h"
-#include "compat.h"
+#include "../compat/compat.h"
 
 #define	MINIMUM(a,b) (((a) < (b)) ? (a) : (b))
 

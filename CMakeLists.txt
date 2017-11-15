@@ -11,6 +11,8 @@ if(HAVE_EXPLICIT_BZERO)
         add_definitions(-DHAVE_EXPLICIT_BZERO)
 endif()
 
+set(CRYPTO_SRC crypto/hmac_sha1.c crypto/pkcs5_pbkdf2.c crypto/sha1.c base64/base64.c)
+
 if(NOT HAVE_ARC4RANDOM_BUF)
         set(CRYPTO_SRC ${CRYPTO_SRC} compat/arc4random.c)
         set(CRYPTO_SRC ${CRYPTO_SRC} compat/arc4random_uniform.c)
@@ -50,7 +52,7 @@ if(NOT HAVE_EXPLICIT_BZERO)
         set(EXTRA_EXPORT ${EXTRA_EXPORT} explicit_bzero)
 endif()
 
-add_library(JustSCRAM scram.c hmac_sha1.c pkcs5_pbkdf2.c sha1.c base64/base64.c ${CRYPTO_SRC})
+add_library(JustSCRAM scram.c ${CRYPTO_SRC})
 
 add_executable(testscram testscram.c)
 target_link_libraries(testscram JustSCRAM)
