@@ -4,3 +4,7 @@ Who needs a full SASL implemenation when you just want SCRAM?
 
 Cryptographic functions are borrowed from the OpenBSD and LibreSSL projects.
 Base64 is from hostapd / wpa_supplicant
+
+https://tools.ietf.org/html/rfc5802
+https://github.com/libressl-portable/portable
+https://github.com/openbsd/src

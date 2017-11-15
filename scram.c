@@ -75,8 +75,7 @@ int scram_parse_client_first(char *client_first, char **first_char, char **usern
     if (!strlen(client_first)) {
         return SCRAM_FAIL;
     }
-    int found_user = 0;
-    int found_nonce = 0;
+    int found_user = 0, found_nonce = 0;
     char *strbegin, *strparts, *token, *buf;
     size_t out_len;
     char *decode_client_first = (char *)base64_decode((unsigned char *)client_first, strlen(client_first), &out_len);
@@ -86,15 +85,23 @@ int scram_parse_client_first(char *client_first, char **first_char, char **usern
         buf = strndup(token, 2);
         if (strcmp(buf, "n=") == 0) {
             printf("Found username\n");
-            found_user = 1;
-            int username_len = strlen(token) - 1;
-            *username = strdup(token + 2);
+            if (found_user) {
+                return SCRAM_FAIL;
+            }
+            else {
+                found_user = 1;
+                *username = strdup(token + 2);
+            }
         }
         if (strcmp(buf, "r=") == 0) {
             printf("Found nonce\n");
-            found_nonce = 1;
-            int client_nonce_len = strlen(token) - 1;
-            *client_nonce = strdup(token + 2);
+            if (found_nonce) {
+                return SCRAM_FAIL;
+            }
+            else {
+                found_nonce = 1;
+                *client_nonce = strdup(token + 2);
+            }
         }
         free(buf);
     }
@@ -117,11 +124,60 @@ int scram_server_first(int user_iteration_count, char *user_salt, char *first_ch
     printf("server nonce: %s\n", *server_nonce);
     char* msg;
     asprintf(&msg, "r=%s%s,s=%s,i=%d", client_nonce, *server_nonce, user_salt, user_iteration_count);
+    printf("server first: %s\n", msg);
     size_t out_len;
     *result = (char *)base64_encode((unsigned char*)msg, strlen(msg), &out_len);
-    printf("server first message: %s\n", *result);
     free(msg);
     return SCRAM_OK;
+}
+
+int scram_parse_server_first(char *server_first, char **combined_salt, char **user_salt, int *iteration_count) {
+    int found_combined_salt = 0, found_user_salt = 0, found_iteration_count = 0;
+    char *strbegin, *strparts, *token, *buf;
+    size_t out_len;
+    char *decode_server_first = (char *)base64_decode((unsigned char *)server_first, strlen(server_first), &out_len);
+    strbegin = strparts = strdup(decode_server_first);
+    while ((token = strsep(&strparts, ",")) != NULL) {
+        buf = strndup(token, 2);
+        if (strcmp(buf, "r=") == 0) {
+            printf("Found combined_salt\n");
+            if (found_combined_salt) {
+                return SCRAM_FAIL;
+            }
+            else {
+                found_combined_salt = 1;
+                *combined_salt = strdup(token + 2);
+            }
+        }
+        if (strcmp(buf, "s=") == 0) {
+            printf("Found user_salt\n");
+            if (found_user_salt) {
+                return SCRAM_FAIL;
+            }
+            else {
+                found_user_salt = 1;
+                *user_salt = strdup(token + 2);
+            }
+        }
+        if (strcmp(buf, "i=") == 0) {
+            printf("Found iteration_count\n");
+            if (found_iteration_count) {
+                return SCRAM_FAIL;
+            }
+            else {
+                found_iteration_count = 1;
+                *iteration_count = (int)strtol(token + 2, (char **)NULL, 10);
+            }
+        }
+        free(buf);
+    }
+    free(strbegin);
+    if (found_combined_salt && found_user_salt && found_iteration_count) {
+        return SCRAM_OK;
+    }
+    else {
+        return SCRAM_FAIL;
+    }
 }
 
 int scram_client_final(char **result) {
