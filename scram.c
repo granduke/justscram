@@ -14,12 +14,10 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <math.h>
 
 #include "base64/base64.h"
 #include "hmac_sha1.h"
@@ -30,9 +28,6 @@
 #define SCRAM_OK 0
 #define SCRAM_FAIL 1
 
-static int digit_count(int number) {
-    return (1 + floor(log10(abs(number))));
-}
 
 static int valid_value_char(unsigned char c) {
     if (c <= 127 && c != '\0' && c != '=' && c != ',') {
@@ -66,13 +61,12 @@ static char* generate_nonce() {
 }
 
 int scram_client_first(char* username, char **result, char **client_nonce) {
-    int len = strlen(username) + NONCE_SIZE + 8;
-    char* msg = malloc(len + 1);
+    char *msg;
     *client_nonce = generate_nonce();
-    snprintf(msg, len + 1, "n,,n=%s,r=%s", username, *client_nonce);
+    asprintf(&msg, "n,,n=%s,r=%s", username, *client_nonce);
     printf("%s\n", msg);
-    size_t *out_len;
-    *result = (char *)base64_encode((unsigned char*)msg, len, out_len);
+    size_t out_len;
+    *result = (char *)base64_encode((unsigned char*)msg, strlen(msg), &out_len);
     free(msg);
     return SCRAM_OK;
 }
@@ -121,13 +115,10 @@ int scram_server_first(int user_iteration_count, char *user_salt, char *first_ch
     *server_nonce = generate_nonce();
     printf("client nonce: %s\n", client_nonce);
     printf("server nonce: %s\n", *server_nonce);
-    int len = NONCE_SIZE + NONCE_SIZE + strlen(user_salt) + digit_count(user_iteration_count) + 8;
-    printf("digits: %d\n", digit_count(user_iteration_count));
-    char* msg = malloc(len + 1);
-    snprintf(msg, len, "r=%s%s,s=%s,i=%d", client_nonce, *server_nonce, user_salt, user_iteration_count);
-    printf("server first len %d: %s\n", len, msg);
-    size_t *out_len;
-    *result = (char *)base64_encode((unsigned char*)msg, len, out_len);
+    char* msg;
+    asprintf(&msg, "r=%s%s,s=%s,i=%d", client_nonce, *server_nonce, user_salt, user_iteration_count);
+    size_t out_len;
+    *result = (char *)base64_encode((unsigned char*)msg, strlen(msg), &out_len);
     printf("server first message: %s\n", *result);
     free(msg);
     return SCRAM_OK;
