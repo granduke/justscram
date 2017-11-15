@@ -86,29 +86,21 @@ int scram_parse_client_first(char *client_first, char **first_char, char **usern
     char *strbegin, *strparts, *token, *buf;
     size_t out_len;
     char *decode_client_first = (char *)base64_decode((unsigned char *)client_first, strlen(client_first), &out_len);
-    *first_char = malloc(2);
-    *first_char[1] = '\0';
-    memcpy(*first_char, decode_client_first, 1);
+    *first_char = strndup(decode_client_first, 1);
     strbegin = strparts = strdup(decode_client_first);
     while ((token = strsep(&strparts, ",")) != NULL) {
-        buf = malloc(3);
-        buf[2] = '\0';
-        strncpy(buf, token, 2);
+        buf = strndup(token, 2);
         if (strcmp(buf, "n=") == 0) {
             printf("Found username\n");
             found_user = 1;
             int username_len = strlen(token) - 1;
-            *username = malloc(username_len);
-            *username[username_len-1] = '\0';
-            strcpy(*username, token + 2);
+            *username = strdup(token + 2);
         }
         if (strcmp(buf, "r=") == 0) {
             printf("Found nonce\n");
             found_nonce = 1;
             int client_nonce_len = strlen(token) - 1;
-            *client_nonce = malloc(client_nonce_len);
-            *client_nonce[client_nonce_len-1] = '\0';
-            strcpy(*client_nonce, token + 2);
+            *client_nonce = strdup(token + 2);
         }
         free(buf);
     }
@@ -121,18 +113,22 @@ int scram_parse_client_first(char *client_first, char **first_char, char **usern
     }
 }
 
-int scram_server_first(int user_iteration_count, char* user_salt, char *first_char, char *client_nonce, char **result, char **server_nonce) {
+int scram_server_first(int user_iteration_count, char *user_salt, char *first_char, char *client_nonce, char **result, char **server_nonce) {
     if (strcmp(first_char, "n") != 0 && strcmp(first_char, "y") != 0 && strcmp(first_char, "p") != 0) {
-        strcpy(*result, "e=other-error");
+        *result = strdup("e=other-error");
         return SCRAM_FAIL;
     }
     *server_nonce = generate_nonce();
+    printf("client nonce: %s\n", client_nonce);
+    printf("server nonce: %s\n", *server_nonce);
     int len = NONCE_SIZE + NONCE_SIZE + strlen(user_salt) + digit_count(user_iteration_count) + 8;
+    printf("digits: %d\n", digit_count(user_iteration_count));
     char* msg = malloc(len + 1);
-    snprintf(msg, len + 1, "r=%s%s,s=%s,i=%d", client_nonce, *server_nonce, user_salt, user_iteration_count);
-    printf("%s\n", msg);
+    snprintf(msg, len, "r=%s%s,s=%s,i=%d", client_nonce, *server_nonce, user_salt, user_iteration_count);
+    printf("server first len %d: %s\n", len, msg);
     size_t *out_len;
     *result = (char *)base64_encode((unsigned char*)msg, len, out_len);
+    printf("server first message: %s\n", *result);
     free(msg);
     return SCRAM_OK;
 }
