@@ -25,9 +25,6 @@
 #include "scram.h"
 
 #define NONCE_SIZE 18
-#define SCRAM_OK 0
-#define SCRAM_FAIL 1
-
 
 static int valid_value_char(unsigned char c) {
     if (c <= 127 && c != '\0' && c != '=' && c != ',') {
@@ -180,12 +177,47 @@ int scram_parse_server_first(char *server_first, char **combined_salt, char **us
     }
 }
 
-int scram_client_final(char **result) {
+int gen_scram_salted_password(char *password, char *salt, int rounds, unsigned char **result) {
+    *result = malloc(20);
+    pkcs5_pbkdf2(password, strlen(password), salt, strlen(salt), *result, 20, rounds);
+    return SCRAM_OK;
+}
+
+void nxor(const unsigned char *a, const unsigned char *b, unsigned char *out, size_t n) {
+    for (int i = 0; i < n; i++) {
+        out[i] = a[i] & b[i];
+    }
+}
+
+int scram_client_final(char *server_first, char *username, unsigned char *scram_salted_password, char *client_nonce, char *server_nonce, char *channel_binding, char **result) {
+    size_t out_len;
+    char *channel_binding_encoded;
+    char *client_message_for_proof;
+    char *auth_message;
+    char *client_proof_encoded;
+    char *msg;
+    uint8_t client_key[20];
+    uint8_t stored_key[20];
+    uint8_t client_sig[20];
+    uint8_t client_proof[20];
+    SHA1_CTX ctx;
+    channel_binding_encoded = (char *)base64_encode((unsigned char*) channel_binding, strlen(channel_binding), &out_len);
+    asprintf(&client_message_for_proof, "c=%s,r=%s%s", channel_binding_encoded, client_nonce, server_nonce);
+    hmac_sha1((unsigned char *)"Client Key", 10, scram_salted_password, 20, client_key);
+    SHA1Init(&ctx);
+    SHA1Update(&ctx, (const uint8_t *)client_key, 20);
+    SHA1Final(stored_key, &ctx);
+    asprintf(&auth_message, "n=%s,r=%s,%s,%s", username, client_nonce, server_first, client_message_for_proof);
+    hmac_sha1((unsigned char *)auth_message, strlen(auth_message), stored_key, 20, client_sig);
+    nxor(client_key, client_sig, client_proof, 20);
+    client_proof_encoded = (char *)base64_encode((unsigned char*) client_proof, 20, &out_len);
+    asprintf(&msg, "%s,p=%s", client_message_for_proof, client_proof_encoded);
+    printf("client final: %s\n", msg);
+    *result = (char *)base64_encode((unsigned char*)msg, strlen(msg), &out_len);
     return SCRAM_OK;
 }
 
 int scram_server_final(char **result) {
     return SCRAM_OK;
 }
-
 

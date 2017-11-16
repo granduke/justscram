@@ -11,7 +11,7 @@ if(HAVE_EXPLICIT_BZERO)
         add_definitions(-DHAVE_EXPLICIT_BZERO)
 endif()
 
-set(CRYPTO_SRC crypto/hmac_sha1.c crypto/pkcs5_pbkdf2.c crypto/sha1.c base64/base64.c)
+set(CRYPTO_SRC crypto/hmac_sha1.c crypto/pkcs5_pbkdf2.c crypto/sha1.c base64/base64.c compat/freezero.c)
 
 if(NOT HAVE_ARC4RANDOM_BUF)
         set(CRYPTO_SRC ${CRYPTO_SRC} compat/arc4random.c)

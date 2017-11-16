@@ -4,6 +4,10 @@
  *
  * This software may be distributed under the terms of the BSD license.
  * See README for more details.
+ *
+ * This version has been modified to produce canonical form with no whitespace
+ * output for use with RFC5802 SCRAM
+ *
  */
 
 #include <stdlib.h>
@@ -12,14 +16,11 @@
 
 static const unsigned char base64_table[65] =
 	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-static const unsigned char base64_url_table[65] =
-	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
 
 static unsigned char * base64_gen_encode(const unsigned char *src, size_t len,
 					 size_t *out_len,
-					 const unsigned char *table,
-					 int add_pad)
+					 const unsigned char *table)
 {
 	unsigned char *out, *pos;
 	const unsigned char *end, *in;
@@ -27,8 +28,6 @@ static unsigned char * base64_gen_encode(const unsigned char *src, size_t len,
 	int line_len;
 
 	olen = len * 4 / 3 + 4; /* 3-byte blocks to 4-byte */
-	if (add_pad)
-		olen += olen / 72; /* line feeds */
 	olen++; /* nul termination */
 	if (olen < len)
 		return NULL; /* integer overflow */
@@ -47,30 +46,19 @@ static unsigned char * base64_gen_encode(const unsigned char *src, size_t len,
 		*pos++ = table[in[2] & 0x3f];
 		in += 3;
 		line_len += 4;
-		if (add_pad && line_len >= 72) {
-			*pos++ = '\n';
-			line_len = 0;
-		}
 	}
 
 	if (end - in) {
 		*pos++ = table[(in[0] >> 2) & 0x3f];
 		if (end - in == 1) {
 			*pos++ = table[((in[0] & 0x03) << 4) & 0x3f];
-			if (add_pad)
-				*pos++ = '=';
 		} else {
 			*pos++ = table[(((in[0] & 0x03) << 4) |
 					(in[1] >> 4)) & 0x3f];
 			*pos++ = table[((in[1] & 0x0f) << 2) & 0x3f];
 		}
-		if (add_pad)
-			*pos++ = '=';
 		line_len += 4;
 	}
-
-	if (add_pad && line_len)
-		*pos++ = '\n';
 
 	*pos = '\0';
 	if (out_len)
@@ -164,14 +152,7 @@ static unsigned char * base64_gen_decode(const unsigned char *src, size_t len,
 unsigned char * base64_encode(const unsigned char *src, size_t len,
 			      size_t *out_len)
 {
-	return base64_gen_encode(src, len, out_len, base64_table, 1);
-}
-
-
-unsigned char * base64_url_encode(const unsigned char *src, size_t len,
-				  size_t *out_len, int add_pad)
-{
-	return base64_gen_encode(src, len, out_len, base64_url_table, add_pad);
+	return base64_gen_encode(src, len, out_len, base64_table);
 }
 
 
@@ -189,11 +170,4 @@ unsigned char * base64_decode(const unsigned char *src, size_t len,
 			      size_t *out_len)
 {
 	return base64_gen_decode(src, len, out_len, base64_table);
-}
-
-
-unsigned char * base64_url_decode(const unsigned char *src, size_t len,
-				  size_t *out_len)
-{
-	return base64_gen_decode(src, len, out_len, base64_url_table);
 }
