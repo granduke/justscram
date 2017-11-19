@@ -30,13 +30,13 @@ int main() {
     r = scram_client_first(username, &client_first, &client_nonce);
     printf("client nonce: %s\n", client_nonce);
     printf("client first message: %s\n", client_first);
-    r = scram_parse_client_first(client_first, &first_char, &parsed_username, &parsed_client_nonce);
+    r = scram_handle_client_first(client_first, &first_char, &parsed_username, &parsed_client_nonce);
     printf("first char: %s\n", first_char);
     printf("parsed username: %s\n", parsed_username);
     printf("parsed client nonce: %s\n", parsed_client_nonce);
     scram_server_first(iterations, usersalt, first_char, parsed_client_nonce, &server_first, &server_nonce);
     printf("server first message: %s\n", server_first);
-    scram_parse_server_first(server_first, client_nonce, &parsed_combined_nonce, &parsed_server_nonce, &parsed_user_salt, &parsed_iteration_count);
+    scram_handle_server_first(server_first, client_nonce, &parsed_combined_nonce, &parsed_server_nonce, &parsed_user_salt, &parsed_iteration_count);
     printf("parsed server nonce: %s\n", parsed_server_nonce);
     printf("parsed combined nonce: %s\n", parsed_combined_nonce);
     printf("parsed user salt: %s\n", parsed_user_salt);

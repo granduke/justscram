@@ -68,7 +68,7 @@ int scram_client_first(char* username, char **result, char **client_nonce) {
     return SCRAM_OK;
 }
 
-int scram_parse_client_first(char *client_first, char **first_char, char **username, char **client_nonce) {
+int scram_handle_client_first(char *client_first, char **first_char, char **username, char **client_nonce) {
     if (!strlen(client_first)) {
         return SCRAM_FAIL;
     }
@@ -128,7 +128,7 @@ int scram_server_first(int user_iteration_count, char *user_salt, char *first_ch
     return SCRAM_OK;
 }
 
-int scram_parse_server_first(char *server_first, char *client_nonce, char **combined_nonce, char **server_nonce, char **user_salt, int *iteration_count) {
+int scram_handle_server_first(char *server_first, char *client_nonce, char **combined_nonce, char **server_nonce, char **user_salt, int *iteration_count) {
     int found_combined_nonce = 0, found_user_salt = 0, found_iteration_count = 0;
     char *strbegin, *strparts, *token, *buf;
     size_t out_len;
@@ -206,6 +206,7 @@ int scram_calculate_client_proof(char *server_first, char *username, unsigned ch
     SHA1Final(stored_key, &ctx);
     asprintf(&auth_message, "n=%s,r=%s,%s,%s", username, client_nonce, server_first, *client_message_bare);
     hmac_sha1((unsigned char *)auth_message, strlen(auth_message), stored_key, 20, client_sig);
+    *client_proof = malloc(20);
     nxor(client_key, client_sig, (unsigned char *)*client_proof, 20);
     return SCRAM_OK;
 }
@@ -215,16 +216,19 @@ int scram_client_final(char *server_first, char *username, unsigned char *scram_
     char *client_proof_encoded;
     char *client_message_bare;
     char *msg;
-    uint8_t client_proof[20];
-    scram_calculate_client_proof(server_first, username, scram_salted_password, client_nonce, server_nonce, channel_binding, &client_message_bare, (char **)&client_proof);
+    char *client_proof;
+    scram_calculate_client_proof(server_first, username, scram_salted_password, client_nonce, server_nonce, channel_binding, &client_message_bare, &client_proof);
     client_proof_encoded = (char *)base64_encode((unsigned char*) client_proof, 20, &out_len);
     asprintf(&msg, "%s,p=%s", client_message_bare, client_proof_encoded);
+    free(client_message_bare);
+    free(client_proof);
+    free(client_proof_encoded);
     printf("client final: %s\n", msg);
     *result = (char *)base64_encode((unsigned char*)msg, strlen(msg), &out_len);
     return SCRAM_OK;
 }
 
-int scram_parse_client_final(char *client_final, char **channel_binding, char **combined_nonce, char **client_proof) {
+int scram_handle_client_final(char *client_final, char **channel_binding, char **combined_nonce, char **client_proof) {
     size_t out_len;
     char *decode_client_final = (char *)base64_decode((unsigned char *)client_final, strlen(client_final), &out_len);
     char *strbegin, *strparts, *token, *buf;
