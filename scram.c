@@ -65,7 +65,7 @@ int scram_client_first(char* username, char **result, char **client_nonce) {
     printf("%s\n", msg);
     size_t out_len;
     *result = (char *)base64_encode((unsigned char*)msg, strlen(msg), &out_len);
-    freezero(msg);
+    freezero(msg, out_len);
     return SCRAM_OK;
 }
 
@@ -75,16 +75,17 @@ int scram_handle_client_first(char *client_first, char **first_char, char **user
     }
     int found_user = 0, found_nonce = 0;
     char *strbegin, *strparts, *token, *buf;
-    size_t out_len;
-    char *decode_client_first = (char *)base64_decode((unsigned char *)client_first, strlen(client_first), &out_len);
+    size_t decode_client_first_len;
+    char *decode_client_first = (char *)base64_decode((unsigned char *)client_first, strlen(client_first), &decode_client_first_len);
     *first_char = strndup(decode_client_first, 1);
     strbegin = strparts = strdup(decode_client_first);
+    freezero(decode_client_first, decode_client_first_len);
     while ((token = strsep(&strparts, ",")) != NULL) {
         buf = strndup(token, 2);
         if (strcmp(buf, "n=") == 0) {
             printf("Found username\n");
             if (found_user) {
-                freezero(*username);
+                free(*username);
             }
             found_user = 1;
             *username = strdup(token + 2);
@@ -92,14 +93,14 @@ int scram_handle_client_first(char *client_first, char **first_char, char **user
         if (strcmp(buf, "r=") == 0) {
             printf("Found nonce\n");
             if (found_nonce) {
-                freezero(*client_nonce);
+                freezero(*client_nonce, NONCE_SIZE);
             }
             found_nonce = 1;
             *client_nonce = strdup(token + 2);
         }
-        freezero(buf);
+        freezero(buf, 2);
     }
-    freezero(strbegin);
+    freezero(strbegin, decode_client_first_len);
     if (found_user && found_nonce) {
         return SCRAM_OK;
     }
@@ -121,22 +122,22 @@ int scram_server_first(int user_iteration_count, char *user_salt, char *first_ch
     printf("server first: %s\n", msg);
     size_t out_len;
     *result = (char *)base64_encode((unsigned char*)msg, strlen(msg), &out_len);
-    freezero(msg);
+    freezero(msg, strlen(msg));
     return SCRAM_OK;
 }
 
 int scram_handle_server_first(char *server_first, char *client_nonce, char **combined_nonce, char **server_nonce, char **user_salt, int *iteration_count) {
     int found_combined_nonce = 0, found_user_salt = 0, found_iteration_count = 0;
     char *strbegin, *strparts, *token, *buf;
-    size_t out_len;
-    char *decode_server_first = (char *)base64_decode((unsigned char *)server_first, strlen(server_first), &out_len);
+    size_t server_first_len;
+    char *decode_server_first = (char *)base64_decode((unsigned char *)server_first, strlen(server_first), &server_first_len);
     strbegin = strparts = strdup(decode_server_first);
     while ((token = strsep(&strparts, ",")) != NULL) {
         buf = strndup(token, 2);
         if (strcmp(buf, "r=") == 0) {
             printf("Found combined nonce\n");
             if (found_combined_nonce) {
-                freezero(*combined_nonce);
+                freezero(*combined_nonce, strlen(*combined_nonce));
             }
             found_combined_nonce = 1;
             *combined_nonce = strdup(token + 2);
@@ -145,7 +146,7 @@ int scram_handle_server_first(char *server_first, char *client_nonce, char **com
         if (strcmp(buf, "s=") == 0) {
             printf("Found user salt\n");
             if (found_user_salt) {
-                freezero(*user_salt);
+                freezero(*user_salt, strlen(*user_salt));
             }
             found_user_salt = 1;
             *user_salt = strdup(token + 2);
@@ -160,9 +161,9 @@ int scram_handle_server_first(char *server_first, char *client_nonce, char **com
                 *iteration_count = (int)strtol(token + 2, (char **)NULL, 10);
             }
         }
-        freezero(buf);
+        freezero(buf, 2);
     }
-    freezero(strbegin);
+    freezero(strbegin, server_first_len);
     if (found_combined_nonce && found_user_salt && found_iteration_count) {
         return SCRAM_OK;
     }
@@ -205,18 +206,19 @@ int scram_calculate_client_proof(char *server_first, char *username, unsigned ch
 }
 
 int scram_client_final(char *server_first, char *username, unsigned char *scram_salted_password, char *client_nonce, char *server_nonce, char *channel_binding, char **result) {
-    size_t out_len;
     char *client_proof_encoded;
+    size_t client_proof_encoded_len;
     char *client_message_bare;
     char *msg;
     char *client_proof;
     scram_calculate_client_proof(server_first, username, scram_salted_password, client_nonce, server_nonce, channel_binding, &client_message_bare, &client_proof);
-    client_proof_encoded = (char *)base64_encode((unsigned char*) client_proof, 20, &out_len);
+    client_proof_encoded = (char *)base64_encode((unsigned char*) client_proof, 20, &client_proof_encoded_len);
     asprintf(&msg, "%s,p=%s", client_message_bare, client_proof_encoded);
-    freezero(client_message_bare);
-    freezero(client_proof);
-    freezero(client_proof_encoded);
+    freezero(client_message_bare, strlen(client_message_bare));
+    freezero(client_proof, 20);
+    freezero(client_proof_encoded, client_proof_encoded_len);
     printf("client final: %s\n", msg);
+    size_t out_len;
     *result = (char *)base64_encode((unsigned char*)msg, strlen(msg), &out_len);
     return SCRAM_OK;
 }
@@ -235,7 +237,7 @@ int scram_handle_client_final(char *client_final, char *username, unsigned char 
         if (strcmp(buf, "c=") == 0) {
             printf("Found channel binding\n");
             if (found_channel_binding) {
-                freezero(channel_binding);
+                freezero(channel_binding, strlen(channel_binding));
             }
             found_channel_binding = 1;
             channel_binding = strdup(token + 2);
@@ -243,7 +245,7 @@ int scram_handle_client_final(char *client_final, char *username, unsigned char 
         if (strcmp(buf, "r=") == 0) {
             printf("Found combined nonce\n");
             if (found_combined_nonce) {
-                freezero(combined_nonce);
+                freezero(combined_nonce, strlen(combined_nonce));
             }
             found_combined_nonce = 1;
             combined_nonce = strdup(token + 2);
@@ -251,14 +253,14 @@ int scram_handle_client_final(char *client_final, char *username, unsigned char 
         if (strcmp(buf, "p=") == 0) {
             printf("Found client proof\n");
             if (found_client_proof) {
-                freezero(client_proof_encoded);
+                freezero(client_proof_encoded, strlen(client_proof_encoded));
             }
             found_client_proof = 1;
             client_proof_encoded = strdup(token + 2);
         }
-        freezero(buf);
+        freezero(buf, 2);
     }
-    freezero(strbegin);
+    freezero(strbegin, strlen(strbegin));
     return SCRAM_OK;
 }
 
