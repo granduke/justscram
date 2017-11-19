@@ -19,6 +19,7 @@
 #include <string.h>
 #include <ctype.h>
 
+#include "compat/compat.h"
 #include "base64/base64.h"
 #include "crypto/hmac_sha1.h"
 #include "crypto/pkcs5_pbkdf2.h"
@@ -64,7 +65,7 @@ int scram_client_first(char* username, char **result, char **client_nonce) {
     printf("%s\n", msg);
     size_t out_len;
     *result = (char *)base64_encode((unsigned char*)msg, strlen(msg), &out_len);
-    free(msg);
+    freezero(msg);
     return SCRAM_OK;
 }
 
@@ -83,26 +84,22 @@ int scram_handle_client_first(char *client_first, char **first_char, char **user
         if (strcmp(buf, "n=") == 0) {
             printf("Found username\n");
             if (found_user) {
-                return SCRAM_FAIL;
+                freezero(*username);
             }
-            else {
-                found_user = 1;
-                *username = strdup(token + 2);
-            }
+            found_user = 1;
+            *username = strdup(token + 2);
         }
         if (strcmp(buf, "r=") == 0) {
             printf("Found nonce\n");
             if (found_nonce) {
-                return SCRAM_FAIL;
+                freezero(*client_nonce);
             }
-            else {
-                found_nonce = 1;
-                *client_nonce = strdup(token + 2);
-            }
+            found_nonce = 1;
+            *client_nonce = strdup(token + 2);
         }
-        free(buf);
+        freezero(buf);
     }
-    free(strbegin);
+    freezero(strbegin);
     if (found_user && found_nonce) {
         return SCRAM_OK;
     }
@@ -124,7 +121,7 @@ int scram_server_first(int user_iteration_count, char *user_salt, char *first_ch
     printf("server first: %s\n", msg);
     size_t out_len;
     *result = (char *)base64_encode((unsigned char*)msg, strlen(msg), &out_len);
-    free(msg);
+    freezero(msg);
     return SCRAM_OK;
 }
 
@@ -139,23 +136,19 @@ int scram_handle_server_first(char *server_first, char *client_nonce, char **com
         if (strcmp(buf, "r=") == 0) {
             printf("Found combined nonce\n");
             if (found_combined_nonce) {
-                return SCRAM_FAIL;
+                freezero(*combined_nonce);
             }
-            else {
-                found_combined_nonce = 1;
-                *combined_nonce = strdup(token + 2);
-                *server_nonce = strdup(token + 2 + strlen(client_nonce));
-            }
+            found_combined_nonce = 1;
+            *combined_nonce = strdup(token + 2);
+            *server_nonce = strdup(token + 2 + strlen(client_nonce));
         }
         if (strcmp(buf, "s=") == 0) {
             printf("Found user salt\n");
             if (found_user_salt) {
-                return SCRAM_FAIL;
+                freezero(*user_salt);
             }
-            else {
-                found_user_salt = 1;
-                *user_salt = strdup(token + 2);
-            }
+            found_user_salt = 1;
+            *user_salt = strdup(token + 2);
         }
         if (strcmp(buf, "i=") == 0) {
             printf("Found iteration count\n");
@@ -167,9 +160,9 @@ int scram_handle_server_first(char *server_first, char *client_nonce, char **com
                 *iteration_count = (int)strtol(token + 2, (char **)NULL, 10);
             }
         }
-        free(buf);
+        freezero(buf);
     }
-    free(strbegin);
+    freezero(strbegin);
     if (found_combined_nonce && found_user_salt && found_iteration_count) {
         return SCRAM_OK;
     }
@@ -220,55 +213,52 @@ int scram_client_final(char *server_first, char *username, unsigned char *scram_
     scram_calculate_client_proof(server_first, username, scram_salted_password, client_nonce, server_nonce, channel_binding, &client_message_bare, &client_proof);
     client_proof_encoded = (char *)base64_encode((unsigned char*) client_proof, 20, &out_len);
     asprintf(&msg, "%s,p=%s", client_message_bare, client_proof_encoded);
-    free(client_message_bare);
-    free(client_proof);
-    free(client_proof_encoded);
+    freezero(client_message_bare);
+    freezero(client_proof);
+    freezero(client_proof_encoded);
     printf("client final: %s\n", msg);
     *result = (char *)base64_encode((unsigned char*)msg, strlen(msg), &out_len);
     return SCRAM_OK;
 }
 
-int scram_handle_client_final(char *client_final, char **channel_binding, char **combined_nonce, char **client_proof) {
+int scram_handle_client_final(char *client_final, char *username, unsigned char *scram_salted_password, char *client_nonce, char *server_nonce) {
     size_t out_len;
     char *decode_client_final = (char *)base64_decode((unsigned char *)client_final, strlen(client_final), &out_len);
     char *strbegin, *strparts, *token, *buf;
     int found_channel_binding = 0, found_combined_nonce = 0, found_client_proof = 0;
+    char *client_proof_encoded;
+    char *channel_binding;
+    char *combined_nonce;
     strbegin = strparts = strdup(decode_client_final);
     while ((token = strsep(&strparts, ",")) != NULL) {
         buf = strndup(token, 2);
         if (strcmp(buf, "c=") == 0) {
             printf("Found channel binding\n");
             if (found_channel_binding) {
-                return SCRAM_FAIL;
+                freezero(channel_binding);
             }
-            else {
-                found_channel_binding = 1;
-                *channel_binding = strdup(token + 2);
-            }
+            found_channel_binding = 1;
+            channel_binding = strdup(token + 2);
         }
         if (strcmp(buf, "r=") == 0) {
             printf("Found combined nonce\n");
             if (found_combined_nonce) {
-                return SCRAM_FAIL;
+                freezero(combined_nonce);
             }
-            else {
-                found_combined_nonce = 1;
-                *combined_nonce = strdup(token + 2);
-            }
+            found_combined_nonce = 1;
+            combined_nonce = strdup(token + 2);
         }
         if (strcmp(buf, "p=") == 0) {
             printf("Found client proof\n");
             if (found_client_proof) {
-                return SCRAM_FAIL;
+                freezero(client_proof_encoded);
             }
-            else {
-                found_client_proof = 1;
-                *client_proof = strdup(token + 2);
-            }
+            found_client_proof = 1;
+            client_proof_encoded = strdup(token + 2);
         }
-        free(buf);
+        freezero(buf);
     }
-    free(strbegin);
+    freezero(strbegin);
     return SCRAM_OK;
 }
 
