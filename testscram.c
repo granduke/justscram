@@ -34,16 +34,23 @@ int main() {
     printf("first char: %s\n", first_char);
     printf("parsed username: %s\n", parsed_username);
     printf("parsed client nonce: %s\n", parsed_client_nonce);
-    scram_server_first(iterations, usersalt, first_char, parsed_client_nonce, &server_first, &server_nonce);
+    r = scram_server_first(iterations, usersalt, first_char, parsed_client_nonce, &server_first, &server_nonce);
     printf("server first message: %s\n", server_first);
-    scram_handle_server_first(server_first, client_nonce, &parsed_combined_nonce, &parsed_server_nonce, &parsed_user_salt, &parsed_iteration_count);
+    r = scram_handle_server_first(server_first, client_nonce, &parsed_combined_nonce, &parsed_server_nonce, &parsed_user_salt, &parsed_iteration_count);
     printf("parsed server nonce: %s\n", parsed_server_nonce);
     printf("parsed combined nonce: %s\n", parsed_combined_nonce);
     printf("parsed user salt: %s\n", parsed_user_salt);
     printf("parsed iteration count: %d\n", parsed_iteration_count);
     gen_scram_salted_password(password, parsed_user_salt, parsed_iteration_count, &salted_password);
-    scram_client_final(server_first, username, salted_password, client_nonce, parsed_server_nonce, "n,,", &client_final);
+    r = scram_client_final(server_first, username, salted_password, client_nonce, parsed_server_nonce, "n,,", &client_final);
     printf("client final message: %s\n", client_final);
+    r = scram_handle_client_final(client_final, server_first, username, salted_password, client_nonce, server_nonce);
+    if (r == SCRAM_OK) {
+        printf("Server determines authentication SUCCESS\n");
+    }
+    else {
+        printf("Server determines authentication FAILURE\n");
+    }
     free(client_first);
     free(client_nonce);
     free(server_first);

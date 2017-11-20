@@ -8,3 +8,11 @@ Base64 is from hostapd / wpa_supplicant
 https://tools.ietf.org/html/rfc5802
 https://github.com/libressl-portable/portable
 https://github.com/openbsd/src
+
+
+Still left TODO:
+
+* Channel binding
+* SASLprep
+* Test result of every malloc (and asprintf)
+* Fail all the places we should
