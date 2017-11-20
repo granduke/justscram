@@ -69,7 +69,7 @@ int scram_client_first(char* username, char **result, char **client_nonce) {
     return SCRAM_OK;
 }
 
-int scram_handle_client_first(char *client_first, char **first_char, char **username, char **client_nonce) {
+int scram_handle_client_first(char *client_first, char **username, char **client_nonce) {
     if (!strlen(client_first)) {
         return SCRAM_FAIL;
     }
@@ -77,7 +77,7 @@ int scram_handle_client_first(char *client_first, char **first_char, char **user
     char *strbegin, *strparts, *token, *buf;
     size_t decode_client_first_len;
     char *decode_client_first = (char *)base64_decode((unsigned char *)client_first, strlen(client_first), &decode_client_first_len);
-    *first_char = strndup(decode_client_first, 1);
+    char *first_char = strndup(decode_client_first, 1);
     strbegin = strparts = strdup(decode_client_first);
     freezero(decode_client_first, decode_client_first_len);
     while ((token = strsep(&strparts, ",")) != NULL) {
@@ -101,6 +101,10 @@ int scram_handle_client_first(char *client_first, char **first_char, char **user
         freezero(buf, 2);
     }
     freezero(strbegin, decode_client_first_len);
+    if (strcmp(first_char, "n") != 0 && strcmp(first_char, "y") != 0 && strcmp(first_char, "p") != 0) {
+        return SCRAM_FAIL;
+    }
+
     if (found_user && found_nonce) {
         return SCRAM_OK;
     }
@@ -109,11 +113,7 @@ int scram_handle_client_first(char *client_first, char **first_char, char **user
     }
 }
 
-int scram_server_first(int user_iteration_count, char *user_salt, char *first_char, char *client_nonce, char **result, char **server_nonce) {
-    if (strcmp(first_char, "n") != 0 && strcmp(first_char, "y") != 0 && strcmp(first_char, "p") != 0) {
-        *result = strdup("e=other-error");
-        return SCRAM_FAIL;
-    }
+int scram_server_first(int user_iteration_count, char *user_salt, char *client_nonce, char **result, char **server_nonce) {
     *server_nonce = generate_nonce();
     printf("client nonce: %s\n", client_nonce);
     printf("server nonce: %s\n", *server_nonce);
@@ -226,7 +226,15 @@ int scram_calculate_client_proof(char *server_first, char *username, unsigned ch
     return SCRAM_OK;
 }
 
-int scram_calculate_server_signature() {
+int scram_calculate_server_signature(char *server_first, char *username, unsigned char *scram_salted_password, char *client_nonce, char *server_nonce, char *channel_binding_encoded, char **server_signature) {
+    char *auth_message;
+    uint8_t server_key[20];
+    gen_auth_message(server_first, username, client_nonce, server_nonce, channel_binding_encoded, &auth_message);
+    /* ServerKey       := HMAC(SaltedPassword, "Server Key") */
+    hmac_sha1((unsigned char *)"Client Key", 10, scram_salted_password, 20, server_key);
+    /* ServerSignature := HMAC(ServerKey, AuthMessage) */
+    hmac_sha1((unsigned char *)auth_message, strlen(auth_message), server_key, 20, (unsigned char *)*server_signature);
+    freezero(auth_message, strlen(auth_message));
     return SCRAM_OK;
 }
 
@@ -325,7 +333,72 @@ int scram_handle_client_final(char *client_final, char *server_first, char *user
     }
 }
 
-int scram_server_final(char **result) {
+int scram_server_final(char *server_first, char *username, unsigned char *scram_salted_password, char *client_nonce, char *server_nonce, char *channel_binding, char **result) {
+    size_t channel_binding_encoded_len;
+    char *msg;
+    size_t out_len;
+    char *server_signature = malloc(20);
+    char *server_signature_encoded;
+    size_t server_signature_encoded_len;
+    char *channel_binding_encoded = (char *)base64_encode((unsigned char*) channel_binding, strlen(channel_binding), &channel_binding_encoded_len);
+    scram_calculate_server_signature(server_first, username, scram_salted_password, client_nonce, server_nonce, channel_binding_encoded, &server_signature);
+    freezero(channel_binding_encoded, channel_binding_encoded_len);
+    server_signature_encoded = (char *)base64_encode((unsigned char*)server_signature, 20, &server_signature_encoded_len);
+    freezero(server_signature, 20);
+    asprintf(&msg, "v=%s", server_signature_encoded);
+    freezero(server_signature_encoded, server_signature_encoded_len);
+    printf("server final %s\n", msg);
+    *result = (char *)base64_encode((unsigned char*)msg, strlen(msg), &out_len);
+    freezero(msg, strlen(msg));
     return SCRAM_OK;
 }
 
+int scram_handle_server_final(char *server_final, char *server_first, char *username, unsigned char *scram_salted_password, char *client_nonce, char *server_nonce, char *channel_binding) {
+    size_t channel_binding_encoded_len;
+    char *calc_server_signature = malloc(20);
+    char *server_signature_encoded;
+    char *server_signature;
+    size_t server_signature_len;
+    int found_server_signature = 0;
+    char *channel_binding_encoded = (char *)base64_encode((unsigned char*) channel_binding, strlen(channel_binding), &channel_binding_encoded_len);
+    scram_calculate_server_signature(server_first, username, scram_salted_password, client_nonce, server_nonce, channel_binding_encoded, &calc_server_signature);
+    freezero(channel_binding_encoded, channel_binding_encoded_len);
+    size_t out_len;
+    char *decode_server_final = (char *)base64_decode((unsigned char *)server_final, strlen(server_final), &out_len);
+    char *strbegin, *strparts, *token, *buf;
+    int signature_differences;
+    strbegin = strparts = strdup(decode_server_final);
+    while ((token = strsep(&strparts, ",")) != NULL) {
+        buf = strndup(token, 2);
+        if (strcmp(buf, "v=") == 0) {
+            printf("Found server signature\n");
+            if (found_server_signature) {
+                freezero(server_signature_encoded, strlen(server_signature_encoded));
+            }
+            found_server_signature = 1;
+            server_signature_encoded = strdup(token + 2);
+            server_signature = (char *)base64_decode((unsigned char *)server_signature_encoded, strlen(server_signature_encoded), &server_signature_len);
+            freezero(server_signature_encoded, strlen(server_signature_encoded));
+        }
+    }
+    freezero(strbegin, strlen(strbegin));
+    if (found_server_signature) {
+        if (server_signature_len != 20) {
+            freezero(server_signature, server_signature_len);
+            return SCRAM_FAIL;
+        }
+        else {
+            signature_differences = timing_safe_compare((unsigned char *)server_signature, (unsigned char *)calc_server_signature, 20);
+            freezero(server_signature, server_signature_len);
+            if (signature_differences) {
+                return SCRAM_FAIL;
+            }
+            else {
+                return SCRAM_OK;
+            }
+        }
+    }
+    else {
+        return SCRAM_FAIL;
+    }
+}
