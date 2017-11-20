@@ -16,3 +16,4 @@ Still left TODO:
 * SASLprep
 * Test result of every malloc (and asprintf)
 * Fail all the places we should
+* SHA-256 support

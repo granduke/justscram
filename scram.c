@@ -173,6 +173,7 @@ int scram_handle_server_first(char *server_first, char *client_nonce, char **com
 }
 
 int gen_scram_salted_password(char *password, char *salt, int rounds, unsigned char **result) {
+    /* SaltedPassword  := Hi(Normalize(password), salt, i) */
     *result = malloc(20);
     pkcs5_pbkdf2(password, strlen(password), salt, strlen(salt), *result, 20, rounds);
     return SCRAM_OK;
@@ -192,40 +193,60 @@ int timing_safe_compare(const unsigned char *a, const unsigned char *b, size_t n
     return result;
 }
 
-int scram_calculate_client_proof(char *server_first, char *username, unsigned char *scram_salted_password, char *client_nonce, char *server_nonce, char *channel_binding, char **client_message_bare, char **client_proof) {
-    printf("Calculate client proof %s %s %s %s %s %s\n", server_first, username, scram_salted_password, client_nonce, server_nonce, channel_binding);
+int gen_auth_message(char *server_first, char *username, char *client_nonce, char *server_nonce, char *channel_binding_encoded, char **auth_message) {
+    /* AuthMessage := client-first-message-bare + "," + server-first-message + "," + channel-binding "," nonce ["," extensions] */
+    /* client-first-message-bare = [reserved-mext ","] username "," nonce ["," extensions] */
+    /* nonce = "r=" c-nonce [s-nonce] */
+    /* username = "n=" saslname */
+    asprintf(auth_message, "n=%s,r=%s,%s,c=%s,r=%s%s", username, client_nonce, server_first, channel_binding_encoded, client_nonce, server_nonce);
+    return SCRAM_OK;
+}
+
+int scram_calculate_client_proof(char *server_first, char *username, unsigned char *scram_salted_password, char *client_nonce, char *server_nonce, char *channel_binding_encoded, char **client_proof) {
+    printf("Calculate client proof %s %s %s %s %s %s\n", server_first, username, scram_salted_password, client_nonce, server_nonce, channel_binding_encoded);
     size_t out_len;
-    char *channel_binding_encoded;
     char *auth_message;
     uint8_t client_key[20];
     uint8_t stored_key[20];
     uint8_t client_sig[20];
     SHA1_CTX ctx;
-    channel_binding_encoded = (char *)base64_encode((unsigned char*) channel_binding, strlen(channel_binding), &out_len);
-    asprintf(client_message_bare, "c=%s,r=%s%s", channel_binding_encoded, client_nonce, server_nonce);
+    /* ClientKey := HMAC(SaltedPassword, "Client Key") */
     hmac_sha1((unsigned char *)"Client Key", 10, scram_salted_password, 20, client_key);
+    /* StoredKey := H(ClientKey) */
     SHA1Init(&ctx);
     SHA1Update(&ctx, (const uint8_t *)client_key, 20);
     SHA1Final(stored_key, &ctx);
-    asprintf(&auth_message, "n=%s,r=%s,%s,%s", username, client_nonce, server_first, *client_message_bare);
+    /* ClientSignature := HMAC(StoredKey, AuthMessage) */
+    gen_auth_message(server_first, username, client_nonce, server_nonce, channel_binding_encoded, &auth_message);
     hmac_sha1((unsigned char *)auth_message, strlen(auth_message), stored_key, 20, client_sig);
+    freezero(auth_message, strlen(auth_message));
     *client_proof = malloc(20);
+    /* ClientProof := ClientKey XOR ClientSignature */
     nxor(client_key, client_sig, (unsigned char *)*client_proof, 20);
+    return SCRAM_OK;
+}
+
+int scram_calculate_server_signature() {
     return SCRAM_OK;
 }
 
 int scram_client_final(char *server_first, char *username, unsigned char *scram_salted_password, char *client_nonce, char *server_nonce, char *channel_binding, char **result) {
     char *client_proof_encoded;
     size_t client_proof_encoded_len;
-    char *client_message_bare;
     char *msg;
     char *client_proof;
-    scram_calculate_client_proof(server_first, username, scram_salted_password, client_nonce, server_nonce, channel_binding, &client_message_bare, &client_proof);
+    /* channel-binding = "c=" base64 */
+    size_t channel_binding_encoded_len;
+    char *channel_binding_encoded = (char *)base64_encode((unsigned char*) channel_binding, strlen(channel_binding), &channel_binding_encoded_len);
+    scram_calculate_client_proof(server_first, username, scram_salted_password, client_nonce, server_nonce, channel_binding_encoded, &client_proof);
     client_proof_encoded = (char *)base64_encode((unsigned char*) client_proof, 20, &client_proof_encoded_len);
-    asprintf(&msg, "%s,p=%s", client_message_bare, client_proof_encoded);
-    freezero(client_message_bare, strlen(client_message_bare));
+    /* client-final-message = channel-binding "," nonce ["," extensions] "," proof */
+    /* nonce = "r=" c-nonce [s-nonce] */
+    /* proof = "p=" base64 */
+    asprintf(&msg, "c=%s,r=%s%s,p=%s", channel_binding_encoded, client_nonce, server_nonce, client_proof_encoded);
     freezero(client_proof, 20);
     freezero(client_proof_encoded, client_proof_encoded_len);
+    freezero(channel_binding_encoded, channel_binding_encoded_len);
     printf("client final: %s\n", msg);
     size_t out_len;
     *result = (char *)base64_encode((unsigned char*)msg, strlen(msg), &out_len);
@@ -239,25 +260,22 @@ int scram_handle_client_final(char *client_final, char *server_first, char *user
     int found_channel_binding = 0, found_combined_nonce = 0, found_client_proof = 0;
     char *client_proof_encoded;
     char *channel_binding_encoded;
-    char *channel_binding;
     char *combined_nonce;
     char *client_message_bare;
     char *client_proof;
     char *server_client_proof;
     size_t client_proof_len;
-    size_t channel_binding_len;
+    int proof_differences = 0;
     strbegin = strparts = strdup(decode_client_final);
     while ((token = strsep(&strparts, ",")) != NULL) {
         buf = strndup(token, 2);
         if (strcmp(buf, "c=") == 0) {
             printf("Found channel binding\n");
             if (found_channel_binding) {
-                freezero(channel_binding, strlen(channel_binding));
+                freezero(channel_binding_encoded, strlen(channel_binding_encoded));
             }
             found_channel_binding = 1;
             channel_binding_encoded = strdup(token + 2);
-            channel_binding = (char *)base64_decode((unsigned char *)channel_binding_encoded, strlen(channel_binding_encoded), &channel_binding_len);
-            printf("channel binding %s\n", channel_binding);
         }
         if (strcmp(buf, "r=") == 0) {
             printf("Found combined nonce\n");
@@ -274,26 +292,36 @@ int scram_handle_client_final(char *client_final, char *server_first, char *user
             }
             found_client_proof = 1;
             client_proof_encoded = strdup(token + 2);
-            printf("Client proof encoded %s\n", client_proof_encoded);
             client_proof = (char *)base64_decode((unsigned char *)client_proof_encoded, strlen(client_proof_encoded), &client_proof_len);
             freezero(client_proof_encoded, strlen(client_proof_encoded));
         }
         freezero(buf, 2);
     }
     freezero(strbegin, strlen(strbegin));
-    if (client_proof_len != 20) {
-        return SCRAM_FAIL;
-    }
-    scram_calculate_client_proof(server_first, username, scram_salted_password, client_nonce, server_nonce, channel_binding, &client_message_bare, &server_client_proof);
-    freezero(channel_binding, channel_binding_len);
-    int proof_differences = timing_safe_compare((unsigned char *)client_proof, (unsigned char *)server_client_proof, 20);
-    freezero(client_message_bare, strlen(client_message_bare));
-    freezero(client_proof, 20);
-    if (proof_differences) {
+    if (!found_channel_binding || !found_combined_nonce || !found_client_proof || client_proof_len != 20) {
+        if (found_channel_binding) {
+            freezero(channel_binding_encoded, strlen(channel_binding_encoded));
+        }
+        if (found_combined_nonce) {
+            freezero(combined_nonce, strlen(combined_nonce));
+        }
+        if (found_client_proof) {
+            freezero(client_proof, client_proof_len);
+        }
         return SCRAM_FAIL;
     }
     else {
-        return SCRAM_OK;
+        scram_calculate_client_proof(server_first, username, scram_salted_password, client_nonce, server_nonce, channel_binding_encoded, &server_client_proof);
+        proof_differences = timing_safe_compare((unsigned char *)client_proof, (unsigned char *)server_client_proof, 20);
+        freezero(channel_binding_encoded, strlen(channel_binding_encoded));
+        freezero(combined_nonce, strlen(combined_nonce));
+        freezero(client_proof, client_proof_len);
+        if (!proof_differences) {
+            return SCRAM_OK;
+        }
+        else {
+            return SCRAM_FAIL;
+        }
     }
 }
 
