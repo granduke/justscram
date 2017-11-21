@@ -16,11 +16,14 @@
 
 static const unsigned char base64_table[65] =
 	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+static const unsigned char base64_url_table[65] =
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
 
 static unsigned char * base64_gen_encode(const unsigned char *src, size_t len,
 					 size_t *out_len,
-					 const unsigned char *table)
+					 const unsigned char *table,
+					 int add_pad)
 {
 	unsigned char *out, *pos;
 	const unsigned char *end, *in;
@@ -52,11 +55,15 @@ static unsigned char * base64_gen_encode(const unsigned char *src, size_t len,
 		*pos++ = table[(in[0] >> 2) & 0x3f];
 		if (end - in == 1) {
 			*pos++ = table[((in[0] & 0x03) << 4) & 0x3f];
+			if (add_pad)
+				*pos++ = '=';
 		} else {
 			*pos++ = table[(((in[0] & 0x03) << 4) |
 					(in[1] >> 4)) & 0x3f];
 			*pos++ = table[((in[1] & 0x0f) << 2) & 0x3f];
 		}
+		if (add_pad)
+			*pos++ = '=';
 		line_len += 4;
 	}
 
@@ -152,7 +159,7 @@ static unsigned char * base64_gen_decode(const unsigned char *src, size_t len,
 unsigned char * base64_encode(const unsigned char *src, size_t len,
 			      size_t *out_len)
 {
-	return base64_gen_encode(src, len, out_len, base64_table);
+	return base64_gen_encode(src, len, out_len, base64_table, 1);
 }
 
 
