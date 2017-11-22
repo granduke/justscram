@@ -89,11 +89,12 @@ int scram_handle_client_first(char *client_first, char **username, char **client
     }
     int found_user = 0, found_nonce = 0;
     char *strbegin, *strparts, *token, *buf;
-    size_t decode_client_first_len;
-    char *decode_client_first = (char *)base64_decode((unsigned char *)client_first, strlen(client_first), &decode_client_first_len);
-    char *first_char = strndup(decode_client_first, 1);
-    strbegin = strparts = strdup(decode_client_first);
-    freezero(decode_client_first, decode_client_first_len);
+    size_t client_first_decoded_len;
+    char *client_first_decoded = (char *)base64_decode((unsigned char *)client_first, strlen(client_first), &client_first_decoded_len);
+    printf("got client first: %s\n", client_first_decoded);
+    char *first_char = strndup(client_first_decoded, 1);
+    strbegin = strparts = strdup(client_first_decoded);
+    freezero(client_first_decoded, client_first_decoded_len);
     while ((token = strsep(&strparts, ",")) != NULL) {
         buf = strndup(token, 2);
         if (strcmp(buf, "n=") == 0) {
@@ -114,7 +115,7 @@ int scram_handle_client_first(char *client_first, char **username, char **client
         }
         freezero(buf, 2);
     }
-    freezero(strbegin, decode_client_first_len);
+    freezero(strbegin, client_first_decoded_len);
     if (strcmp(first_char, "n") != 0 && strcmp(first_char, "y") != 0 && strcmp(first_char, "p") != 0) {
         return SCRAM_FAIL;
     }
@@ -247,6 +248,9 @@ int scram_calculate_client_proof(char *server_first, char *username, unsigned ch
     printf("stored key: ");
     hex_print(stored_key, 20);
     /* ClientSignature := HMAC(StoredKey, AuthMessage) */
+    //printf("auth message inputs a %s\n", client_nonce);
+    printf("auth message inputs b %s\n", server_nonce );
+    printf("auth message inputs c %s\n", channel_binding_encoded);
     gen_auth_message(server_first, username, client_nonce, server_nonce, channel_binding_encoded, &auth_message);
     hmac_sha1((unsigned char *)auth_message, strlen(auth_message), stored_key, 20, client_sig);
     printf("client sig: ");
@@ -271,6 +275,7 @@ int scram_calculate_server_signature(char *server_first, char *username, unsigne
     printf("Server key: ");
     hex_print(server_key, 20);
     /* ServerSignature := HMAC(ServerKey, AuthMessage) */
+    *server_signature = malloc(20);
     hmac_sha1((unsigned char *)auth_message, strlen(auth_message), server_key, 20, *server_signature);
     printf("Server signature ");
     hex_print(*server_signature, 20);
@@ -303,7 +308,8 @@ int scram_client_final(char *server_first, char *username, unsigned char *scram_
 
 int scram_handle_client_final(char *client_final, char *server_first, char *username, unsigned char *scram_salted_password, char *client_nonce, char *server_nonce) {
     size_t out_len;
-    char *decode_client_final = (char *)base64_decode((unsigned char *)client_final, strlen(client_final), &out_len);
+    char *client_final_decoded = (char *)base64_decode((unsigned char *)client_final, strlen(client_final), &out_len);
+    printf("got client final: %s\n", client_final_decoded);
     char *strbegin, *strparts, *token, *buf;
     int found_channel_binding = 0, found_combined_nonce = 0, found_client_proof = 0;
     char *client_proof_encoded;
@@ -311,10 +317,10 @@ int scram_handle_client_final(char *client_final, char *server_first, char *user
     char *combined_nonce;
     char *client_message_bare;
     char *client_proof;
-    unsigned char *server_client_proof;
+    unsigned char *server_client_proof = malloc(20);
     size_t client_proof_len;
     int proof_differences = 0;
-    strbegin = strparts = strdup(decode_client_final);
+    strbegin = strparts = strdup(client_final_decoded);
     while ((token = strsep(&strparts, ",")) != NULL) {
         buf = strndup(token, 2);
         if (strcmp(buf, "c=") == 0) {
@@ -374,10 +380,11 @@ int scram_handle_client_final(char *client_final, char *server_first, char *user
 }
 
 int scram_server_final(char *server_first, char *username, unsigned char *scram_salted_password, char *client_nonce, char *server_nonce, char *channel_binding, char **result) {
+    printf("server final\n");
     size_t channel_binding_encoded_len;
     char *msg;
     size_t out_len;
-    unsigned char *server_signature = malloc(20);
+    unsigned char *server_signature;
     char *server_signature_encoded;
     size_t server_signature_encoded_len;
     char *channel_binding_encoded = (char *)base64_encode((unsigned char*) channel_binding, strlen(channel_binding), &channel_binding_encoded_len);

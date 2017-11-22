@@ -59,17 +59,16 @@ void test_server_side() {
     char channel_binding[] = "n,,";
     char *client_first;
     char *parsed_username;
-    char *parsed_client_nonce;
+    char *client_nonce;
     char *server_first;
     char *server_nonce;
-    char *client_nonce;
     char *client_final;
     char *server_final;
     unsigned char *salted_password;
     int iterations = 4096;
     get_input_line("Enter client first message", &client_first);
-    r = scram_handle_client_first(client_first, &parsed_username, &parsed_client_nonce);
-    r = scram_server_first(iterations, user_salt_b64, parsed_client_nonce, &server_first, &server_nonce);
+    r = scram_handle_client_first(client_first, &parsed_username, &client_nonce);
+    r = scram_server_first(iterations, user_salt_b64, client_nonce, &server_first, &server_nonce);
     printf("server first message: %s\n", server_first);
     get_input_line("Enter client final message", &client_final);
     gen_scram_salted_password(password, user_salt_b64, iterations, &salted_password);
@@ -161,7 +160,7 @@ void test_both_sides() {
 
 int main() {
     //test_client_side();
-    //test_server_side();
-    test_both_sides();
+    test_server_side();
+    //test_both_sides();
     return 0;
 }
