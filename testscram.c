@@ -61,6 +61,7 @@ void test_server_side() {
     char *parsed_username;
     char *client_nonce;
     char *server_first;
+    char *server_first_decoded;
     char *server_nonce;
     char *client_final;
     char *server_final;
@@ -68,19 +69,19 @@ void test_server_side() {
     int iterations = 4096;
     get_input_line("Enter client first message", &client_first);
     r = scram_handle_client_first(client_first, &parsed_username, &client_nonce);
-    r = scram_server_first(iterations, user_salt_b64, client_nonce, &server_first, &server_nonce);
+    r = scram_server_first(iterations, user_salt_b64, client_nonce, &server_first, &server_first_decoded, &server_nonce);
     printf("server first message: %s\n", server_first);
     get_input_line("Enter client final message", &client_final);
     gen_scram_salted_password(password, user_salt_b64, iterations, &salted_password);
-    r = scram_handle_client_final(client_final, server_first, username, salted_password, client_nonce, server_nonce);
+    r = scram_handle_client_final(client_final, server_first_decoded, username, salted_password, client_nonce, server_nonce);
     if (r == SCRAM_OK) {
         printf("Server determines authentication SUCCESS\n");
+        r = scram_server_final(server_first_decoded, username, salted_password, client_nonce, server_nonce, channel_binding, &server_final);
+        printf("server final message: %s\n", server_final);
     }
     else {
         printf("Server determines authentication FAILURE\n");
     }
-    r = scram_server_final(server_first, username, salted_password, client_nonce, server_nonce, channel_binding, &server_final);
-    printf("server final message: %s\n", server_final);
 }
 
 void test_both_sides() {
@@ -99,6 +100,7 @@ void test_both_sides() {
     //
     char *server_first;
     char *server_first_decoded;
+    char *server_first_decoded_first;
     char *server_nonce;
     //
     char *parsed_combined_nonce;
@@ -118,9 +120,9 @@ void test_both_sides() {
     r = scram_handle_client_first(client_first, &parsed_username, &parsed_client_nonce);
     //printf("parsed username: %s\n", parsed_username);
     //printf("parsed client nonce: %s\n", parsed_client_nonce);
-    r = scram_server_first(iterations, user_salt_b64, parsed_client_nonce, &server_first, &server_nonce);
+    r = scram_server_first(iterations, user_salt_b64, parsed_client_nonce, &server_first, &server_first_decoded_first, &server_nonce);
     //printf("server first message: %s\n", server_first);
-    r = scram_handle_server_first(server_first, client_nonce, &server_first_decoded, &parsed_combined_nonce, &parsed_server_nonce, &parsed_user_salt, &parsed_iteration_count);
+    r = scram_handle_server_first(server_first, client_nonce, &server_first_decoded_first, &parsed_combined_nonce, &parsed_server_nonce, &parsed_user_salt, &parsed_iteration_count);
     //printf("parsed server nonce: %s\n", parsed_server_nonce);
     //printf("parsed combined nonce: %s\n", parsed_combined_nonce);
     printf("parsed user salt: %s\n", parsed_user_salt);
@@ -132,18 +134,19 @@ void test_both_sides() {
     r = scram_handle_client_final(client_final, server_first_decoded, username, server_salted_password, client_nonce, server_nonce);
     if (r == SCRAM_OK) {
         printf("Server determines authentication SUCCESS\n");
+        r = scram_server_final(server_first_decoded, username, server_salted_password, client_nonce, server_nonce, channel_binding, &server_final);
+        printf("server final message: %s\n", server_final);
+        r = scram_handle_server_final(server_final, server_first_decoded, username, client_salted_password, client_nonce, parsed_server_nonce, channel_binding);
+        if (r == SCRAM_OK) {
+            printf("Client determines authentication SUCCESS\n");
+        }
+        else {
+            printf("Client determines authentication FAILURE\n");
+        }
+        free(server_final);
     }
     else {
         printf("Server determines authentication FAILURE\n");
-    }
-    r = scram_server_final(server_first_decoded, username, server_salted_password, client_nonce, server_nonce, channel_binding, &server_final);
-    printf("server final message: %s\n", server_final);
-    r = scram_handle_server_final(server_final, server_first_decoded, username, client_salted_password, client_nonce, parsed_server_nonce, channel_binding);
-    if (r == SCRAM_OK) {
-        printf("Client determines authentication SUCCESS\n");
-    }
-    else {
-        printf("Client determines authentication FAILURE\n");
     }
     free(client_first);
     free(client_nonce);
@@ -153,7 +156,6 @@ void test_both_sides() {
     free(parsed_client_nonce);
     free(parsed_combined_nonce);
     free(parsed_user_salt);
-    free(server_final);
     free(server_salted_password);
     free(client_salted_password);
 }
