@@ -12,6 +12,7 @@ https://github.com/openbsd/src
 
 Still left TODO:
 
+* Switch salted password to base64 encoded in API
 * Channel binding
 * SASLprep
 * Test result of every malloc (and asprintf)

@@ -1,8 +1,24 @@
+/*-
+ * Copyright (c) 2017 Joshua Jackson <jjackson@kallisteconsulting.com>
+ *
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include "scram.h"
+
 
 void get_input_line(char *prompt, char **result) {
     char buf[BUFSIZ] = "";
@@ -18,7 +34,7 @@ void get_input_line(char *prompt, char **result) {
     *result = strdup(buf);
 }
 
-void test_client_side() {
+void test_client_side_low() {
     char username[] = "user";
     char password[] = "pencil";
     char channel_binding[] = "n,,";
@@ -51,9 +67,8 @@ void test_client_side() {
     }
 }
 
-void test_server_side() {
+void test_server_side_low() {
     int r;
-    char username[] = "user";
     char password[] = "pencil";
     char user_salt_b64[] = "QSXCR+Q6sek8bf92";
     char channel_binding[] = "n,,";
@@ -73,10 +88,10 @@ void test_server_side() {
     printf("server first message: %s\n", server_first);
     get_input_line("Enter client final message", &client_final);
     gen_scram_salted_password(password, user_salt_b64, iterations, &salted_password);
-    r = scram_handle_client_final(client_final, server_first_decoded, username, salted_password, client_nonce, server_nonce);
+    r = scram_handle_client_final(client_final, server_first_decoded, parsed_username, salted_password, client_nonce, server_nonce);
     if (r == SCRAM_OK) {
         printf("Server determines authentication SUCCESS\n");
-        r = scram_server_final(server_first_decoded, username, salted_password, client_nonce, server_nonce, channel_binding, &server_final);
+        r = scram_server_final(server_first_decoded, parsed_username, salted_password, client_nonce, server_nonce, channel_binding, &server_final);
         printf("server final message: %s\n", server_final);
     }
     else {
@@ -169,10 +184,10 @@ void help_message() {
 int main(int argc, char **argv) {
     if (argc >= 2) {
         if (strcmp("-c", argv[1]) == 0) {
-            test_client_side();
+            test_client_side_low();
         }
         else if (strcmp("-s", argv[1]) == 0) {
-            test_server_side();
+            test_server_side_low();
         }
         else if (strcmp("-b", argv[1]) == 0) {
             test_both_sides();

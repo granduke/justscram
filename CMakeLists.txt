@@ -59,7 +59,7 @@ if(NOT HAVE_EXPLICIT_BZERO)
     set(EXTRA_EXPORT ${EXTRA_EXPORT} explicit_bzero)
 endif()
 
-add_library(JustSCRAM scram.c ${CRYPTO_SRC})
+add_library(JustSCRAM scram.c messages.c passwords.c ${CRYPTO_SRC})
 
 add_executable(testscram testscram.c)
 target_link_libraries(testscram JustSCRAM)
