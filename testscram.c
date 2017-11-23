@@ -99,8 +99,8 @@ void test_both_sides() {
     char *parsed_client_nonce;
     //
     char *server_first;
-    char *server_first_decoded;
-    char *server_first_decoded_first;
+    char *server_first_decoded_client;
+    char *server_first_decoded_server;
     char *server_nonce;
     //
     char *parsed_combined_nonce;
@@ -115,28 +115,28 @@ void test_both_sides() {
     char *server_final;
     //
     r = scram_client_first(username, &client_first, &client_nonce);
-    //printf("client nonce: %s\n", client_nonce);
-    //printf("client first message: %s\n", client_first);
+    printf("client nonce: %s\n", client_nonce);
+    printf("client first message: %s\n", client_first);
     r = scram_handle_client_first(client_first, &parsed_username, &parsed_client_nonce);
-    //printf("parsed username: %s\n", parsed_username);
-    //printf("parsed client nonce: %s\n", parsed_client_nonce);
-    r = scram_server_first(iterations, user_salt_b64, parsed_client_nonce, &server_first, &server_first_decoded_first, &server_nonce);
-    //printf("server first message: %s\n", server_first);
-    r = scram_handle_server_first(server_first, client_nonce, &server_first_decoded_first, &parsed_combined_nonce, &parsed_server_nonce, &parsed_user_salt, &parsed_iteration_count);
-    //printf("parsed server nonce: %s\n", parsed_server_nonce);
-    //printf("parsed combined nonce: %s\n", parsed_combined_nonce);
+    printf("parsed username: %s\n", parsed_username);
+    printf("parsed client nonce: %s\n", parsed_client_nonce);
+    r = scram_server_first(iterations, user_salt_b64, parsed_client_nonce, &server_first, &server_first_decoded_server, &server_nonce);
+    printf("server first message: %s\n", server_first);
+    r = scram_handle_server_first(server_first, client_nonce, &server_first_decoded_client, &parsed_combined_nonce, &parsed_server_nonce, &parsed_user_salt, &parsed_iteration_count);
+    printf("parsed server nonce: %s\n", parsed_server_nonce);
+    printf("parsed combined nonce: %s\n", parsed_combined_nonce);
     printf("parsed user salt: %s\n", parsed_user_salt);
-    //printf("parsed iteration count: %d\n", parsed_iteration_count);
+    printf("parsed iteration count: %d\n", parsed_iteration_count);
     gen_scram_salted_password(password, parsed_user_salt, parsed_iteration_count, &client_salted_password);
-    r = scram_client_final(server_first_decoded, username, client_salted_password, client_nonce, parsed_server_nonce, channel_binding, &client_final);
-    //printf("client final message: %s\n", client_final);
+    r = scram_client_final(server_first_decoded_client, username, client_salted_password, client_nonce, parsed_server_nonce, channel_binding, &client_final);
+    printf("client final message: %s\n", client_final);
     gen_scram_salted_password(password, user_salt_b64, parsed_iteration_count, &server_salted_password);
-    r = scram_handle_client_final(client_final, server_first_decoded, username, server_salted_password, client_nonce, server_nonce);
+    r = scram_handle_client_final(client_final, server_first_decoded_server, username, server_salted_password, client_nonce, server_nonce);
     if (r == SCRAM_OK) {
         printf("Server determines authentication SUCCESS\n");
-        r = scram_server_final(server_first_decoded, username, server_salted_password, client_nonce, server_nonce, channel_binding, &server_final);
+        r = scram_server_final(server_first_decoded_server, username, server_salted_password, client_nonce, server_nonce, channel_binding, &server_final);
         printf("server final message: %s\n", server_final);
-        r = scram_handle_server_final(server_final, server_first_decoded, username, client_salted_password, client_nonce, parsed_server_nonce, channel_binding);
+        r = scram_handle_server_final(server_final, server_first_decoded_client, username, client_salted_password, client_nonce, parsed_server_nonce, channel_binding);
         if (r == SCRAM_OK) {
             printf("Client determines authentication SUCCESS\n");
         }
@@ -160,9 +160,29 @@ void test_both_sides() {
     free(client_salted_password);
 }
 
-int main() {
-    //test_client_side();
-    test_server_side();
-    //test_both_sides();
+void help_message() {
+    printf("-c to test client side\n");
+    printf("-s to test server side\n");
+    printf("-b to test both sides\n");
+}
+
+int main(int argc, char **argv) {
+    if (argc >= 2) {
+        if (strcmp("-c", argv[1]) == 0) {
+            test_client_side();
+        }
+        else if (strcmp("-s", argv[1]) == 0) {
+            test_server_side();
+        }
+        else if (strcmp("-b", argv[1]) == 0) {
+            test_both_sides();
+        }
+        else {
+            help_message();
+        }
+    }
+    else {
+        help_message();
+    }
     return 0;
 }

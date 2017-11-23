@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdarg.h>
 
 #include "compat/compat.h"
 #include "base64/base64.h"
@@ -28,20 +29,22 @@
 #define NONCE_SIZE 18
 
 
-void hex_print(void *data, size_t len) {
+void debug_printf(const char * fmt, ...) {
+#ifdef DEBUG
+    va_list args;
+    va_start(args, fmt);
+    vprintf(fmt, args);
+    va_end(args);
+#endif
+}
+
+void debug_hex_print(void *data, size_t len) {
     int i;
     unsigned char *p = (unsigned char *)data;
     for (i = 0; i < len; i++) {
-        printf("%02x", p[i]);
+        debug_printf("%02x", p[i]);
     }
-    printf("\n");
-}
-
-static int valid_value_char(unsigned char c) {
-    if (c <= 127 && c != '\0' && c != '=' && c != ',') {
-        return 1;
-    }
-    return 0;
+    debug_printf("\n");
 }
 
 static int valid_nonce_char(unsigned char c) {
@@ -76,7 +79,7 @@ int scram_client_first(char* username, char **result, char **client_nonce) {
     *client_nonce = generate_nonce();
 #endif
     asprintf(&msg, "n,,n=%s,r=%s", username, *client_nonce);
-    printf("client first %s\n", msg);
+    debug_printf("client first %s\n", msg);
     size_t out_len;
     *result = (char *)base64_encode((unsigned char*)msg, strlen(msg), &out_len);
     freezero(msg, out_len);
@@ -91,14 +94,14 @@ int scram_handle_client_first(char *client_first, char **username, char **client
     char *strbegin, *strparts, *token, *buf;
     size_t client_first_decoded_len;
     char *client_first_decoded = (char *)base64_decode((unsigned char *)client_first, strlen(client_first), &client_first_decoded_len);
-    printf("got client first: %s\n", client_first_decoded);
+    debug_printf("got client first: %s\n", client_first_decoded);
     char *first_char = strndup(client_first_decoded, 1);
     strbegin = strparts = strdup(client_first_decoded);
     freezero(client_first_decoded, client_first_decoded_len);
     while ((token = strsep(&strparts, ",")) != NULL) {
         buf = strndup(token, 2);
         if (strcmp(buf, "n=") == 0) {
-            printf("Found username\n");
+            debug_printf("Found username\n");
             if (found_user) {
                 free(*username);
             }
@@ -106,7 +109,7 @@ int scram_handle_client_first(char *client_first, char **username, char **client
             *username = strdup(token + 2);
         }
         if (strcmp(buf, "r=") == 0) {
-            printf("Found nonce\n");
+            debug_printf("Found nonce\n");
             if (found_nonce) {
                 freezero(*client_nonce, NONCE_SIZE);
             }
@@ -134,10 +137,10 @@ int scram_server_first(int user_iteration_count, char *user_salt_b64, char *clie
 #else
     *server_nonce = generate_nonce();
 #endif
-    printf("client nonce: %s\n", client_nonce);
-    printf("server nonce: %s\n", *server_nonce);
+    debug_printf("client nonce: %s\n", client_nonce);
+    debug_printf("server nonce: %s\n", *server_nonce);
     asprintf(server_first_decoded, "r=%s%s,s=%s,i=%d", client_nonce, *server_nonce, user_salt_b64, user_iteration_count);
-    printf("server first: %s\n", *server_first_decoded);
+    debug_printf("server first: %s\n", *server_first_decoded);
     size_t out_len;
     *result = (char *)base64_encode((unsigned char*)*server_first_decoded, strlen(*server_first_decoded), &out_len);
     return SCRAM_OK;
@@ -152,7 +155,7 @@ int scram_handle_server_first(char *server_first, char *client_nonce, char **ser
     while ((token = strsep(&strparts, ",")) != NULL) {
         buf = strndup(token, 2);
         if (strcmp(buf, "r=") == 0) {
-            printf("Found combined nonce\n");
+            debug_printf("Found combined nonce\n");
             if (found_combined_nonce) {
                 freezero(*combined_nonce, strlen(*combined_nonce));
             }
@@ -166,10 +169,10 @@ int scram_handle_server_first(char *server_first, char *client_nonce, char **ser
             }
             found_user_salt = 1;
             *user_salt = strdup(token + 2);
-            printf("Found user salt %s\n", *user_salt);
+            debug_printf("Found user salt %s\n", *user_salt);
         }
         if (strcmp(buf, "i=") == 0) {
-            printf("Found iteration count\n");
+            debug_printf("Found iteration count\n");
             if (found_iteration_count) {
                 return SCRAM_FAIL;
             }
@@ -199,7 +202,6 @@ int gen_scram_salted_password(char *password, char *salt_b64, int rounds, unsign
     return SCRAM_OK;
 }
 
-
 void nxor(const unsigned char *a, const unsigned char *b, unsigned char **out, size_t n) {
     unsigned char *p;
     for (int i = 0; i < n; i++) {
@@ -222,16 +224,16 @@ int gen_auth_message(char *server_first, char *username, char *client_nonce, cha
     /* nonce = "r=" c-nonce [s-nonce] */
     /* username = "n=" saslname */
     asprintf(auth_message, "n=%s,r=%s,%s,c=%s,r=%s%s", username, client_nonce, server_first, channel_binding_encoded, client_nonce, server_nonce);
-    printf("\n\nclient first message bare n=%s,r=%s\n", username, client_nonce);
-    printf("server first: %s\n", server_first);
-    printf("client final message without proof c=%s,r=%s%s\n", channel_binding_encoded, client_nonce, server_nonce);
-    printf("auth message %s\n\n\n", *auth_message);
+    debug_printf("\n\nclient first message bare n=%s,r=%s\n", username, client_nonce);
+    debug_printf("server first: %s\n", server_first);
+    debug_printf("client final message without proof c=%s,r=%s%s\n", channel_binding_encoded, client_nonce, server_nonce);
+    debug_printf("auth message %s\n\n\n", *auth_message);
     return SCRAM_OK;
 }
 
 int scram_calculate_client_proof(char *server_first, char *username, unsigned char *scram_salted_password, char *client_nonce, char *server_nonce, char *channel_binding_encoded, unsigned char **client_proof) {
-    printf("Salted password: ");
-    hex_print(scram_salted_password, 20);
+    debug_printf("Salted password: ");
+    debug_hex_print(scram_salted_password, 20);
     size_t out_len;
     char *auth_message;
     uint8_t client_key[20];
@@ -240,46 +242,43 @@ int scram_calculate_client_proof(char *server_first, char *username, unsigned ch
     SHA1_CTX ctx;
     /* ClientKey := HMAC(SaltedPassword, "Client Key") */
     hmac_sha1((unsigned char *)"Client Key", 10, scram_salted_password, 20, client_key);
-    printf("client key: ");
-    hex_print(client_key, 20);
+    debug_printf("client key: ");
+    debug_hex_print(client_key, 20);
     /* StoredKey := H(ClientKey) */
     SHA1Init(&ctx);
     SHA1Update(&ctx, (const uint8_t *)client_key, 20);
     SHA1Final(stored_key, &ctx);
-    printf("stored key: ");
-    hex_print(stored_key, 20);
+    debug_printf("stored key: ");
+    debug_hex_print(stored_key, 20);
     /* ClientSignature := HMAC(StoredKey, AuthMessage) */
-    //printf("auth message inputs a %s\n", client_nonce);
-    printf("auth message inputs b %s\n", server_nonce );
-    printf("auth message inputs c %s\n", channel_binding_encoded);
     gen_auth_message(server_first, username, client_nonce, server_nonce, channel_binding_encoded, &auth_message);
     hmac_sha1((unsigned char *)auth_message, strlen(auth_message), stored_key, 20, client_sig);
-    printf("client sig: ");
-    hex_print(client_sig, 20);
+    debug_printf("client sig: ");
+    debug_hex_print(client_sig, 20);
     freezero(auth_message, strlen(auth_message));
     *client_proof = malloc(20);
     /* ClientProof := ClientKey XOR ClientSignature */
     nxor(client_key, client_sig, client_proof, 20);
-    printf("Client proof: ");
-    hex_print(*client_proof, 20);
+    debug_printf("Client proof: ");
+    debug_hex_print(*client_proof, 20);
     return SCRAM_OK;
 }
 
 int scram_calculate_server_signature(char *server_first_decoded, char *username, unsigned char *scram_salted_password, char *client_nonce, char *server_nonce, char *channel_binding_encoded, unsigned char **server_signature) {
-    printf("Salted password: ");
-    hex_print(scram_salted_password, 20);
+    debug_printf("Salted password: ");
+    debug_hex_print(scram_salted_password, 20);
     char *auth_message;
     uint8_t server_key[20];
     gen_auth_message(server_first_decoded, username, client_nonce, server_nonce, channel_binding_encoded, &auth_message);
     /* ServerKey := HMAC(SaltedPassword, "Server Key") */
     hmac_sha1((unsigned char *)"Server Key", 10, scram_salted_password, 20, server_key);
-    printf("Server key: ");
-    hex_print(server_key, 20);
+    debug_printf("Server key: ");
+    debug_hex_print(server_key, 20);
     /* ServerSignature := HMAC(ServerKey, AuthMessage) */
     *server_signature = malloc(20);
     hmac_sha1((unsigned char *)auth_message, strlen(auth_message), server_key, 20, *server_signature);
-    printf("Server signature ");
-    hex_print(*server_signature, 20);
+    debug_printf("Server signature ");
+    debug_hex_print(*server_signature, 20);
     freezero(auth_message, strlen(auth_message));
     return SCRAM_OK;
 }
@@ -301,7 +300,7 @@ int scram_client_final(char *server_first_decoded, char *username, unsigned char
     freezero(client_proof, 20);
     freezero(client_proof_encoded, client_proof_encoded_len);
     freezero(channel_binding_encoded, channel_binding_encoded_len);
-    printf("client final: %s\n", msg);
+    debug_printf("client final: %s\n", msg);
     size_t out_len;
     *result = (char *)base64_encode((unsigned char*)msg, strlen(msg), &out_len);
     return SCRAM_OK;
@@ -310,7 +309,7 @@ int scram_client_final(char *server_first_decoded, char *username, unsigned char
 int scram_handle_client_final(char *client_final, char *server_first, char *username, unsigned char *scram_salted_password, char *client_nonce, char *server_nonce) {
     size_t out_len;
     char *client_final_decoded = (char *)base64_decode((unsigned char *)client_final, strlen(client_final), &out_len);
-    printf("got client final: %s\n", client_final_decoded);
+    debug_printf("got client final: %s\n", client_final_decoded);
     char *strbegin, *strparts, *token, *buf;
     int found_channel_binding = 0, found_combined_nonce = 0, found_client_proof = 0;
     char *client_proof_encoded;
@@ -325,7 +324,7 @@ int scram_handle_client_final(char *client_final, char *server_first, char *user
     while ((token = strsep(&strparts, ",")) != NULL) {
         buf = strndup(token, 2);
         if (strcmp(buf, "c=") == 0) {
-            printf("Found channel binding\n");
+            debug_printf("Found channel binding\n");
             if (found_channel_binding) {
                 freezero(channel_binding_encoded, strlen(channel_binding_encoded));
             }
@@ -333,7 +332,7 @@ int scram_handle_client_final(char *client_final, char *server_first, char *user
             channel_binding_encoded = strdup(token + 2);
         }
         if (strcmp(buf, "r=") == 0) {
-            printf("Found combined nonce\n");
+            debug_printf("Found combined nonce\n");
             if (found_combined_nonce) {
                 freezero(combined_nonce, strlen(combined_nonce));
             }
@@ -341,7 +340,7 @@ int scram_handle_client_final(char *client_final, char *server_first, char *user
             combined_nonce = strdup(token + 2);
         }
         if (strcmp(buf, "p=") == 0) {
-            printf("Found client proof\n");
+            debug_printf("Found client proof\n");
             if (found_client_proof) {
                 freezero(client_proof_encoded, strlen(client_proof_encoded));
             }
@@ -394,7 +393,7 @@ int scram_server_final(char *server_first_decoded, char *username, unsigned char
     freezero(server_signature, 20);
     asprintf(&msg, "v=%s", server_signature_encoded);
     freezero(server_signature_encoded, server_signature_encoded_len);
-    printf("server final %s\n", msg);
+    debug_printf("server final %s\n", msg);
     *result = (char *)base64_encode((unsigned char*)msg, strlen(msg), &out_len);
     freezero(msg, strlen(msg));
     return SCRAM_OK;
@@ -418,7 +417,7 @@ int scram_handle_server_final(char *server_final, char *server_first_decoded, ch
     while ((token = strsep(&strparts, ",")) != NULL) {
         buf = strndup(token, 2);
         if (strcmp(buf, "v=") == 0) {
-            printf("Found server signature\n");
+            debug_printf("Found server signature\n");
             if (found_server_signature) {
                 freezero(server_signature_encoded, strlen(server_signature_encoded));
             }
