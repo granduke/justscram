@@ -20,6 +20,13 @@
 #include "scram.h"
 
 
+char username[] = "user";
+char password[] = "pencil";
+char user_salt_b64[] = "QSXCR+Q6sek8bf92";
+char channel_binding[] = "n,,";
+int iterations = 4096;
+
+
 void get_input_line(char *prompt, char **result) {
     char buf[BUFSIZ] = "";
     char *s;
@@ -34,10 +41,79 @@ void get_input_line(char *prompt, char **result) {
     *result = strdup(buf);
 }
 
+void test_client_side_high() {
+    int r;
+    char *in_message;
+    char *out_message;
+    scram_state_t state;
+    scram_client_init(&state, username, password, channel_binding);
+    r = scram_client_auth_first(&state, &out_message);
+    if (r == SCRAM_CONTINUE) {
+        printf("Transmit to server: %s\n", out_message);
+        free(out_message);
+        do {
+            get_input_line("Enter server message", &in_message);
+            r = scram_client_auth_step(&state, in_message, &out_message);
+            free(in_message);
+            printf("Transmit to server: %s\n", out_message);
+            free(out_message);
+        } while (r == SCRAM_CONTINUE);
+    }
+    scram_client_state_free(&state);
+    if (r == SCRAM_OK) {
+        printf("Client reports authentication SUCCESS\n");
+    }
+    else {
+        printf("Client reports authentication FAIL\n");
+    }
+}
+
+void test_server_side_high() {
+    int r;
+    char *in_message = NULL;
+    char *out_message = NULL;
+    char *username = NULL;
+    unsigned char *salted_password = NULL;
+    scram_state_t state;
+    scram_server_init(&state, channel_binding);
+    get_input_line("Enter client message", &in_message);
+    r = scram_server_auth_first(&state, in_message, &username);
+    free(username);
+    if (r == SCRAM_CONTINUE) {
+        // Here we would fetch the user password hash and salt. For the test we use test data.
+        r = gen_scram_salted_password(password, user_salt_b64, iterations, &salted_password);
+        if (r == SCRAM_CONTINUE) {
+            r = scram_server_auth_info(&state, salted_password, user_salt_b64);
+            while (r == SCRAM_CONTINUE) {
+                r = scram_server_auth_step(&state, in_message, &out_message);
+                free(in_message);
+                printf("Transmit to client: %s\n", out_message);
+                free(out_message);
+                if (r == SCRAM_CONTINUE) {
+                    get_input_line("Enter client message", &in_message);
+                }
+            }
+        }
+    }
+    scram_server_state_free(&state);
+    if (in_message) {
+        free(in_message);
+    }
+    if (out_message) {
+        free(out_message);
+    }
+    if (salted_password) {
+        free(salted_password);
+    }
+    if (r == SCRAM_OK) {
+        printf("Server reports authentication SUCCESS\n");
+    }
+    else {
+        printf("Server reports authentication FAIL\n");
+    }
+}
+
 void test_client_side_low() {
-    char username[] = "user";
-    char password[] = "pencil";
-    char channel_binding[] = "n,,";
     int r;
     char *client_first;
     char *client_nonce;
@@ -69,9 +145,6 @@ void test_client_side_low() {
 
 void test_server_side_low() {
     int r;
-    char password[] = "pencil";
-    char user_salt_b64[] = "QSXCR+Q6sek8bf92";
-    char channel_binding[] = "n,,";
     char *client_first;
     char *parsed_username;
     char *client_nonce;
@@ -81,7 +154,6 @@ void test_server_side_low() {
     char *client_final;
     char *server_final;
     unsigned char *salted_password;
-    int iterations = 4096;
     get_input_line("Enter client first message", &client_first);
     r = scram_handle_client_first(client_first, &parsed_username, &client_nonce);
     r = scram_server_first(iterations, user_salt_b64, client_nonce, &server_first, &server_first_decoded, &server_nonce);
@@ -100,11 +172,6 @@ void test_server_side_low() {
 }
 
 void test_both_sides() {
-    char username[] = "user";
-    char password[] = "pencil";
-    char user_salt_b64[] = "QSXCR+Q6sek8bf92";
-    char channel_binding[] = "n,,";
-    int iterations = 4096;
     int r;
     //
     char *client_first;

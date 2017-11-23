@@ -14,17 +14,15 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "compat/compat.h"
 #include "scram.h"
 
 
-void scram_client_init(char *username, char *salted_password, size_t salted_password_len, char *channel_binding, scram_state_t *state) {
+void scram_client_init(scram_state_t *state, char *username, char *password, char *channel_binding) {
     state->username = strdup(username);
-    state->salted_password = malloc(salted_password_len);
-    memcpy(state->salted_password, salted_password, salted_password_len);
+    state->password = strdup(password);
     state->channel_binding = strdup(channel_binding);
     state->client_first = NULL;
     state->client_final = NULL;
@@ -37,7 +35,7 @@ void scram_client_init(char *username, char *salted_password, size_t salted_pass
     state->auth_step = 0;
 }
 
-void scram_server_init(char *channel_binding, scram_state_t *state) {
+void scram_server_init(scram_state_t *state, char *channel_binding) {
     state->channel_binding = strdup(channel_binding);
     state->username = NULL;
     state->salted_password = NULL;
@@ -52,7 +50,7 @@ void scram_server_init(char *channel_binding, scram_state_t *state) {
     state->auth_step = 0;
 }
 
-int scram_client_auth_step(scram_state_t *state, char *in_message, char **out_message) {
+int scram_client_auth_first(scram_state_t *state, char **out_message) {
     int r;
     if (state->auth_step == 0) {
         r = scram_client_first(state->username, &(state->client_first), &(state->client_nonce));
@@ -62,14 +60,22 @@ int scram_client_auth_step(scram_state_t *state, char *in_message, char **out_me
             return SCRAM_CONTINUE;
         }
     }
-    else if (state->auth_step == 1) {
+    return SCRAM_FAIL;
+}
+
+int scram_client_auth_step(scram_state_t *state, char *in_message, char **out_message) {
+    int r;
+    if (state->auth_step == 1) {
         r = scram_handle_server_first(in_message, state->client_nonce, &(state->server_first_decoded), &(state->combined_nonce), &(state->server_nonce), &(state->user_salt_b64), &(state->iteration_count));
         if (r == SCRAM_OK) {
-            r = scram_client_final(state->server_first_decoded, state->username, state->salted_password, state->client_nonce, state->server_nonce, state->channel_binding, &(state->client_final));
+            r = gen_scram_salted_password(state->password, state->user_salt_b64, state->iteration_count, &(state->salted_password));
             if (r == SCRAM_OK) {
-                state->auth_step++;
-                *out_message = strdup(state->client_final);
-                return SCRAM_CONTINUE;
+                r = scram_client_final(state->server_first_decoded, state->username, state->salted_password, state->client_nonce, state->server_nonce, state->channel_binding, &(state->client_final));
+                if (r == SCRAM_OK) {
+                    state->auth_step++;
+                    *out_message = strdup(state->client_final);
+                    return SCRAM_CONTINUE;
+                }
             }
         }
     }
@@ -88,7 +94,7 @@ int scram_server_auth_first(scram_state_t *state, char *in_message, char **usern
     if (state->auth_step == 0) {
         r = scram_handle_client_first(in_message, &(state->username), &(state->client_nonce));
         if (r == SCRAM_OK) {
-            state->auth_step = 1;
+            state->auth_step++;
             *username = strdup(state->username);
             return SCRAM_CONTINUE;
         }
@@ -96,11 +102,11 @@ int scram_server_auth_first(scram_state_t *state, char *in_message, char **usern
     return SCRAM_FAIL;
 }
 
-int scram_server_auth_info(scram_state_t *state, char *salted_password, size_t salted_password_len, char *user_salt_b64) {
+int scram_server_auth_info(scram_state_t *state, unsigned char *salted_password, char *user_salt_b64) {
     if (state->auth_step == 1) {
-        memcpy(state->salted_password, salted_password, salted_password_len);
+        memcpy(state->salted_password, salted_password, 20);
         state->user_salt_b64 = strdup(user_salt_b64);
-        state->auth_step = 2;
+        state->auth_step++;
         return SCRAM_CONTINUE;
     }
     return SCRAM_FAIL;
@@ -167,4 +173,12 @@ void scram_state_free(scram_state_t *state) {
     if (state->user_salt_b64) {
         free(state->user_salt_b64);
     }
+}
+
+void scram_client_state_free(scram_state_t *state) {
+    scram_state_free(state);
+}
+
+void scram_server_state_free(scram_state_t *state) {
+    scram_state_free(state);
 }

@@ -1,4 +1,3 @@
-#include <stdlib.h>
 
 #define SCRAM_OK 0
 #define SCRAM_FAIL 1
@@ -7,6 +6,7 @@
 
 typedef struct {
     char *username;
+    char *password;
     char *user_salt_b64;
     unsigned char *salted_password;
     char *channel_binding;
@@ -23,23 +23,23 @@ typedef struct {
 } scram_state_t;
 
 
-/* Client side functions */
-
-void scram_client_init(char *username, char *salted_password, size_t salted_password_len, char *channel_binding, scram_state_t *state);
+/* Client side authentication functions */
+void scram_client_init(scram_state_t *state, char *username, char *password, char *channel_binding);
+int scram_client_auth_first(scram_state_t *state, char **out_message);
 int scram_client_auth_step(scram_state_t *state, char *in_message, char **out_message);
+void scram_client_state_free(scram_state_t *state);
 
 
-/* Server side functions */
-
-void scram_server_init(char *channel_binding, scram_state_t *state);
+/* Server side authentication functions */
+void scram_server_init(scram_state_t *state, char *channel_binding);
 int scram_server_auth_first(scram_state_t *state, char *in_message, char **username);
-int scram_server_auth_info(scram_state_t *state, char *salted_password, size_t salted_password_len, char *user_salt_b64);
+int scram_server_auth_info(scram_state_t *state, unsigned char *salted_password, char *user_salt_b64);
 int scram_server_auth_step(scram_state_t *state, char *in_message, char **out_message);
+void scram_server_state_free(scram_state_t *state);
 
 
-/* Both sides functions */
+/* Password hashing */
 int gen_scram_salted_password(char *password, char *salt_b64, int rounds, unsigned char **result);
-void scram_state_free(scram_state_t *state);
 
 
 /* Client side low level functions */
