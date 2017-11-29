@@ -3,6 +3,8 @@ include(CheckFunctionExists)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# add_definitions(-DDEBUG_PRINT)
+
 check_function_exists(arc4random_buf HAVE_ARC4RANDOM_BUF)
 if(HAVE_ARC4RANDOM_BUF)
     add_definitions(-DHAVE_ARC4RANDOM_BUF)

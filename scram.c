@@ -24,29 +24,35 @@ void scram_client_init(scram_state_t *state, char *username, char *password, cha
     state->username = strdup(username);
     state->password = strdup(password);
     state->channel_binding = strdup(channel_binding);
-    state->client_first = NULL;
-    state->client_final = NULL;
-    state->server_first = NULL;
-    state->server_first_decoded = NULL;
-    state->client_nonce = NULL;
-    state->server_nonce = NULL;
-    state->combined_nonce = NULL;
-    state->user_salt_b64 = NULL;
-    state->auth_step = 0;
-}
-
-void scram_server_init(scram_state_t *state, char *channel_binding) {
-    state->channel_binding = strdup(channel_binding);
-    state->username = NULL;
     state->salted_password = NULL;
     state->client_first = NULL;
     state->client_final = NULL;
     state->server_first = NULL;
+    state->server_final = NULL;
     state->server_first_decoded = NULL;
     state->client_nonce = NULL;
     state->server_nonce = NULL;
     state->combined_nonce = NULL;
     state->user_salt_b64 = NULL;
+    state->iteration_count = 0;
+    state->auth_step = 0;
+}
+
+void scram_server_init(scram_state_t *state, char *channel_binding) {
+    state->username = NULL;
+    state->password = NULL;
+    state->channel_binding = strdup(channel_binding);
+    state->salted_password = NULL;
+    state->client_first = NULL;
+    state->client_final = NULL;
+    state->server_first = NULL;
+    state->server_final = NULL;
+    state->server_first_decoded = NULL;
+    state->client_nonce = NULL;
+    state->server_nonce = NULL;
+    state->combined_nonce = NULL;
+    state->user_salt_b64 = NULL;
+    state->iteration_count = 0;
     state->auth_step = 0;
 }
 
@@ -102,10 +108,12 @@ int scram_server_auth_first(scram_state_t *state, char *in_message, char **usern
     return SCRAM_FAIL;
 }
 
-int scram_server_auth_info(scram_state_t *state, unsigned char *salted_password, char *user_salt_b64) {
+int scram_server_auth_info(scram_state_t *state, unsigned char *salted_password, char *user_salt_b64, int iteration_count) {
     if (state->auth_step == 1) {
+        state->salted_password = malloc(20);
         memcpy(state->salted_password, salted_password, 20);
         state->user_salt_b64 = strdup(user_salt_b64);
+        state->iteration_count = iteration_count;
         state->auth_step++;
         return SCRAM_CONTINUE;
     }
@@ -123,7 +131,7 @@ int scram_server_auth_step(scram_state_t *state, char *in_message, char **out_me
         }
     }
     else if (state->auth_step == 3) {
-        r = scram_handle_client_final(state->client_final, state->server_first_decoded, state->username, state->salted_password, state->client_nonce, state->server_nonce);
+        r = scram_handle_client_final(in_message, state->server_first_decoded, state->username, state->salted_password, state->client_nonce, state->server_nonce);
         if (r == SCRAM_OK) {
             r = scram_server_final(state->server_first_decoded, state->username, state->salted_password, state->client_nonce, state->server_nonce, state->channel_binding, &(state->server_final));
             if (r == SCRAM_OK) {

@@ -33,7 +33,7 @@ void scram_client_state_free(scram_state_t *state);
 /* Server side authentication functions */
 void scram_server_init(scram_state_t *state, char *channel_binding);
 int scram_server_auth_first(scram_state_t *state, char *in_message, char **username);
-int scram_server_auth_info(scram_state_t *state, unsigned char *salted_password, char *user_salt_b64);
+int scram_server_auth_info(scram_state_t *state, unsigned char *salted_password, char *user_salt_b64, int iteration_count);
 int scram_server_auth_step(scram_state_t *state, char *in_message, char **out_message);
 void scram_server_state_free(scram_state_t *state);
 

@@ -43,23 +43,34 @@ void get_input_line(char *prompt, char **result) {
 
 void test_client_side_high() {
     int r;
-    char *in_message;
-    char *out_message;
+    char *in_message = NULL;
+    char *out_message = NULL;
     scram_state_t state;
     scram_client_init(&state, username, password, channel_binding);
     r = scram_client_auth_first(&state, &out_message);
     if (r == SCRAM_CONTINUE) {
         printf("Transmit to server: %s\n", out_message);
         free(out_message);
+        out_message = NULL;
         do {
             get_input_line("Enter server message", &in_message);
             r = scram_client_auth_step(&state, in_message, &out_message);
             free(in_message);
-            printf("Transmit to server: %s\n", out_message);
-            free(out_message);
+            in_message = NULL;
+            if (r == SCRAM_CONTINUE) {
+                printf("Transmit to server: %s\n", out_message);
+                free(out_message);
+                out_message = NULL;
+            }
         } while (r == SCRAM_CONTINUE);
     }
     scram_client_state_free(&state);
+    if (in_message) {
+        free(in_message);
+    }
+    if (out_message) {
+        free(out_message);
+    }
     if (r == SCRAM_OK) {
         printf("Client reports authentication SUCCESS\n");
     }
@@ -78,17 +89,20 @@ void test_server_side_high() {
     scram_server_init(&state, channel_binding);
     get_input_line("Enter client message", &in_message);
     r = scram_server_auth_first(&state, in_message, &username);
-    free(username);
     if (r == SCRAM_CONTINUE) {
         // Here we would fetch the user password hash and salt. For the test we use test data.
+        free(username);
+        username = NULL;
         r = gen_scram_salted_password(password, user_salt_b64, iterations, &salted_password);
-        if (r == SCRAM_CONTINUE) {
-            r = scram_server_auth_info(&state, salted_password, user_salt_b64);
+        if (r == SCRAM_OK) {
+            r = scram_server_auth_info(&state, salted_password, user_salt_b64, iterations);
             while (r == SCRAM_CONTINUE) {
                 r = scram_server_auth_step(&state, in_message, &out_message);
                 free(in_message);
+                in_message = NULL;
                 printf("Transmit to client: %s\n", out_message);
                 free(out_message);
+                out_message = NULL;
                 if (r == SCRAM_CONTINUE) {
                     get_input_line("Enter client message", &in_message);
                 }
@@ -242,29 +256,37 @@ void test_both_sides() {
     free(client_salted_password);
 }
 
-void help_message() {
-    printf("-c to test client side\n");
-    printf("-s to test server side\n");
-    printf("-b to test both sides\n");
+void help_message(char *cmd) {
+    printf("%s -c to test client side high level functions\n", cmd);
+    printf("%s -s to test server side high level functions\n", cmd);
+    printf("%s -cl to test client side low level functions\n", cmd);
+    printf("%s -sl to test server side low level functions\n", cmd);
+    printf("%s -b to test both sides\n", cmd);
 }
 
 int main(int argc, char **argv) {
     if (argc >= 2) {
         if (strcmp("-c", argv[1]) == 0) {
-            test_client_side_low();
+            test_client_side_high();
         }
         else if (strcmp("-s", argv[1]) == 0) {
+            test_server_side_high();
+        }
+        else if (strcmp("-cl", argv[1]) == 0) {
+            test_client_side_low();
+        }
+        else if (strcmp("-sl", argv[1]) == 0) {
             test_server_side_low();
         }
         else if (strcmp("-b", argv[1]) == 0) {
             test_both_sides();
         }
         else {
-            help_message();
+            help_message(argv[0]);
         }
     }
     else {
-        help_message();
+        help_message(argv[0]);
     }
     return 0;
 }
