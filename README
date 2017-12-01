@@ -18,3 +18,4 @@ Still left TODO:
 * Test result of every malloc (and asprintf)
 * Fail all the places we should
 * SHA-256 support
+* Reorganize SHA-256 and SHA-512 into sha2/ directory
