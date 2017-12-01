@@ -26,7 +26,7 @@ int gen_scram_salted_password(char *password, char *salt_b64, int rounds, unsign
     size_t salt_len;
     char *salt = (char *)base64_decode((unsigned char *)salt_b64, strlen(salt_b64), &salt_len);
     /* SaltedPassword  := Hi(Normalize(password), salt, i) */
-    *result = malloc(20);
+    *result = (unsigned char *)malloc(20);
     pkcs5_pbkdf2(password, strlen(password), salt, salt_len, *result, 20, rounds);
     freezero(salt, salt_len);
     return SCRAM_OK;

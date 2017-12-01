@@ -14,6 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "scram.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,7 +24,6 @@
 #include "base64/base64.h"
 #include "crypto/hmac_sha1.h"
 #include "crypto/pkcs5_pbkdf2.h"
-#include "scram.h"
 
 #define NONCE_SIZE 18
 
@@ -69,7 +69,7 @@ static const char generate_nonce_char() {
 }
 
 static char* generate_nonce() {
-    char* nonce = malloc(NONCE_SIZE + 1);
+    char* nonce = (char *)malloc(NONCE_SIZE + 1);
     nonce[NONCE_SIZE] = '\0';
     for (int i = 0; i < NONCE_SIZE; i++) {
         nonce[i] = generate_nonce_char();
@@ -135,7 +135,7 @@ int scram_calculate_client_proof(char *server_first, char *username, unsigned ch
     debug_printf("client sig: ");
     debug_hex_print(client_sig, 20);
     freezero(auth_message, strlen(auth_message));
-    *client_proof = malloc(20);
+    *client_proof = (unsigned char *)malloc(20);
     /* ClientProof := ClientKey XOR ClientSignature */
     nxor(client_key, client_sig, client_proof, 20);
     debug_printf("Client proof: ");
@@ -154,7 +154,7 @@ int scram_calculate_server_signature(char *server_first_decoded, char *username,
     debug_printf("Server key: ");
     debug_hex_print(server_key, 20);
     /* ServerSignature := HMAC(ServerKey, AuthMessage) */
-    *server_signature = malloc(20);
+    *server_signature = (unsigned char *)malloc(20);
     hmac_sha1((unsigned char *)auth_message, strlen(auth_message), server_key, 20, *server_signature);
     debug_printf("Server signature ");
     debug_hex_print(*server_signature, 20);
@@ -321,7 +321,7 @@ int scram_handle_client_final(char *client_final, char *server_first, char *user
     char *combined_nonce;
     char *client_message_bare;
     char *client_proof;
-    unsigned char *server_client_proof = malloc(20);
+    unsigned char *server_client_proof = (unsigned char *)malloc(20);
     size_t client_proof_len;
     int proof_differences = 0;
     strbegin = strparts = strdup(client_final_decoded);
@@ -405,7 +405,7 @@ int scram_server_final(char *server_first_decoded, char *username, unsigned char
 
 int scram_handle_server_final(char *server_final, char *server_first_decoded, char *username, unsigned char *scram_salted_password, char *client_nonce, char *server_nonce, char *channel_binding) {
     size_t channel_binding_encoded_len;
-    unsigned char *calc_server_signature = malloc(20);
+    unsigned char *calc_server_signature = (unsigned char *)malloc(20);
     char *server_signature_encoded;
     char *server_signature;
     size_t server_signature_len;

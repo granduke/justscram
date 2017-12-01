@@ -20,7 +20,6 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <util.h>
 
 #include "sha1.h"
 #include "hmac_sha1.h"
@@ -46,7 +45,7 @@ pkcs5_pbkdf2(const char *pass, size_t pass_len, const uint8_t *salt,
 		return -1;
 	if (salt_len == 0 || salt_len > SIZE_MAX - 4)
 		return -1;
-	if ((asalt = malloc(salt_len + 4)) == NULL)
+	if ((asalt = (uint8_t *)malloc(salt_len + 4)) == NULL)
 		return -1;
 
 	memcpy(asalt, salt, salt_len);

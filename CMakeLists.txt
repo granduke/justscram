@@ -10,9 +10,11 @@ if(HAVE_ARC4RANDOM_BUF)
     add_definitions(-DHAVE_ARC4RANDOM_BUF)
 endif()
 
-check_function_exists(explicit_bzero HAVE_EXPLICIT_BZERO)
-if(HAVE_EXPLICIT_BZERO)
-    add_definitions(-DHAVE_EXPLICIT_BZERO)
+if(NOT CMAKE_SYSTEM_NAME MATCHES "Linux")
+    check_function_exists(explicit_bzero HAVE_EXPLICIT_BZERO)
+    if(HAVE_EXPLICIT_BZERO)
+        add_definitions(-DHAVE_EXPLICIT_BZERO)
+    endif()
 endif()
 
 check_function_exists(memset_s HAVE_MEMSET_S)
@@ -24,11 +26,6 @@ set(CRYPTO_SRC crypto/hmac_sha1.c crypto/pkcs5_pbkdf2.c crypto/sha1.c base64/bas
 
 if(NOT HAVE_ARC4RANDOM_BUF)
     set(CRYPTO_SRC ${CRYPTO_SRC} compat/arc4random.c)
-    set(CRYPTO_SRC ${CRYPTO_SRC} compat/arc4random_uniform.c)
-    set(EXTRA_EXPORT ${EXTRA_EXPORT} arc4random)
-    set(EXTRA_EXPORT ${EXTRA_EXPORT} arc4random_buf)
-    set(EXTRA_EXPORT ${EXTRA_EXPORT} arc4random_uniform)
-
     if(NOT HAVE_GETENTROPY)
         if(CMAKE_HOST_WIN32)
             set(CRYPTO_SRC ${CRYPTO_SRC} compat/getentropy_win.c)
@@ -36,10 +33,12 @@ if(NOT HAVE_ARC4RANDOM_BUF)
             set(CRYPTO_SRC ${CRYPTO_SRC} compat/getentropy_aix.c)
         elseif(CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
             set(CRYPTO_SRC ${CRYPTO_SRC} compat/getentropy_freebsd.c)
+        elseif(CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
         elseif(CMAKE_SYSTEM_NAME MATCHES "HP-UX")
             set(CRYPTO_SRC ${CRYPTO_SRC} compat/getentropy_hpux.c)
         elseif(CMAKE_SYSTEM_NAME MATCHES "Linux")
             set(CRYPTO_SRC ${CRYPTO_SRC} compat/getentropy_linux.c)
+            set(CRYPTO_SRC ${CRYPTO_SRC} compat/sha512.c)
         elseif(CMAKE_SYSTEM_NAME MATCHES "NetBSD")
             set(CRYPTO_SRC ${CRYPTO_SRC} compat/getentropy_netbsd.c)
         elseif(CMAKE_SYSTEM_NAME MATCHES "Darwin")
@@ -56,49 +55,15 @@ if(NOT HAVE_EXPLICIT_BZERO)
         set(CRYPTO_SRC ${CRYPTO_SRC} compat/explicit_bzero_win.c)
     else()
         set(CRYPTO_SRC ${CRYPTO_SRC} compat/explicit_bzero.c)
-        set_source_files_properties(compat/explicit_bzero.c PROPERTIES COMPILE_FLAGS -O0)
     endif()
-    set(EXTRA_EXPORT ${EXTRA_EXPORT} explicit_bzero)
+endif()
+
+if(ENABLE_ALL_CXX_COMPILE)
+    set_source_files_properties(scram.c messages.c passwords.c testscram.c PROPERTIES LANGUAGE CXX)
+    set_source_files_properties(testscram.c PROPERTIES COMPILE_FLAGS -Wno-write-strings)
 endif()
 
 add_library(JustSCRAM scram.c messages.c passwords.c ${CRYPTO_SRC})
 
 add_executable(testscram testscram.c)
 target_link_libraries(testscram JustSCRAM)
-
-# This section based on http://www.cmake.org/pipermail/cmake/2003-June/003953.html
-IF (UNIX)
-    ADD_CUSTOM_TARGET (distclean @echo cleaning for source distribution)
-    SET(DISTCLEANED
-        CMakeFiles
-        cmake.depends
-        cmake.check_depends
-        CMakeCache.txt
-        cmake.check_cache
-        Makefile
-        *.cmake
-        */CMakeCache.txt
-        */CMakeFiles
-        */*.cmake
-        */*/CMakeCache.txt
-        */*/CMakeFiles
-        */*/*.cmake
-        core core.*
-        gmon.out
-        */*.o
-        */*.a
-        *.o
-        *.a
-        *~
-        compile_commands.json
-        testscram
-        )
-
-    ADD_CUSTOM_COMMAND(
-        DEPENDS clean
-        COMMENT "distribution clean"
-        COMMAND rm
-        ARGS    -Rf CMakeTmp ${DISTCLEANED}
-        TARGET  distclean
-        )
-ENDIF(UNIX)

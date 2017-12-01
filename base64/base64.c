@@ -34,7 +34,7 @@ static unsigned char * base64_gen_encode(const unsigned char *src, size_t len,
 	olen++; /* nul termination */
 	if (olen < len)
 		return NULL; /* integer overflow */
-	out = malloc(olen);
+	out = (unsigned char *)malloc(olen);
 	if (out == NULL)
 		return NULL;
 
@@ -99,7 +99,7 @@ static unsigned char * base64_gen_decode(const unsigned char *src, size_t len,
 	extra_pad = (4 - count % 4) % 4;
 
 	olen = (count + extra_pad) / 4 * 3;
-	pos = out = malloc(olen);
+	pos = out = (unsigned char *)malloc(olen);
 	if (out == NULL)
 		return NULL;
 

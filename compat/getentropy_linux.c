@@ -47,6 +47,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <time.h>
+#include <openssl/opensslconf.h>
 #include <openssl/sha.h>
 
 #include <linux/types.h>
@@ -55,6 +56,8 @@
 #include <sys/auxv.h>
 #endif
 #include <sys/vfs.h>
+
+#include "../crypto/sha1.h"
 
 #define REPEAT 5
 #define min(a, b) (((a) < (b)) ? (a) : (b))

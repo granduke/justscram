@@ -48,9 +48,9 @@
 /* Hash a single 512-bit block. This is the core of the algorithm. */
 
 void
-SHA1Transform(u_int32_t state[5], const unsigned char buffer[SHA1_BLOCK_LENGTH])
+SHA1Transform(uint32_t state[5], const unsigned char buffer[SHA1_BLOCK_LENGTH])
 {
-    u_int32_t a, b, c, d, e;
+    uint32_t a, b, c, d, e;
     typedef union {
         unsigned char c[64];
         unsigned int l[16];
@@ -127,7 +127,7 @@ SHA1Update(SHA1_CTX *context, const unsigned char *data, unsigned int len)
     unsigned int i;
     unsigned int j;
 
-    j = (u_int32_t)((context->count >> 3) & 63);
+    j = (uint32_t)((context->count >> 3) & 63);
     context->count += (len << 3);
     if ((j + len) > 63) {
         bcopy(data, &context->buffer[j], (i = 64 - j));

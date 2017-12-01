@@ -110,7 +110,7 @@ int scram_server_auth_first(scram_state_t *state, char *in_message, char **usern
 
 int scram_server_auth_info(scram_state_t *state, unsigned char *salted_password, char *user_salt_b64, int iteration_count) {
     if (state->auth_step == 1) {
-        state->salted_password = malloc(20);
+        state->salted_password = (unsigned char *)malloc(20);
         memcpy(state->salted_password, salted_password, 20);
         state->user_salt_b64 = strdup(user_salt_b64);
         state->iteration_count = iteration_count;
