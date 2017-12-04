@@ -19,6 +19,10 @@ uint32_t arc4random_uniform(uint32_t upper_bound);
 void freezero(void *ptr, size_t sz);
 #endif
 
+#ifndef HAVE_GETENTROPY
+int getentropy(void *buf, size_t len);
+#endif
+
 #ifdef __cplusplus
 }
 #endif

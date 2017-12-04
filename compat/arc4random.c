@@ -36,6 +36,8 @@
 #define KEYSTREAM_ONLY
 #include "chacha_private.h"
 
+#include "compat.h"
+
 #define minimum(a, b) ((a) < (b) ? (a) : (b))
 
 #if defined(__GNUC__) || defined(_MSC_VER)

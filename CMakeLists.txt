@@ -23,6 +23,11 @@ if(HAVE_MEMSET_S)
     add_definitions(-DHAVE_MEMSET_S)
 endif()
 
+check_function_exists(getentropy HAVE_GETENTROPY)
+if(HAVE_GETENTROPY)
+    add_definitions(-DHAVE_GETENTROPY)
+endif()
+
 set(CRYPTO_SRC crypto/hmac_sha1.c crypto/pkcs5_pbkdf2.c crypto/sha1.c base64/base64.c compat/freezero.c)
 
 if(NOT HAVE_ARC4RANDOM_BUF)
@@ -78,7 +83,9 @@ if(ENABLE_ALL_CXX_COMPILE)
     endif()
 endif()
 
+
 add_library(JustSCRAM scram.c messages.c passwords.c ${CRYPTO_SRC})
 
 add_executable(testscram testscram.c)
 target_link_libraries(testscram JustSCRAM)
+set_property(TARGET JustSCRAM PROPERTY C_STANDARD 99)
