@@ -59,6 +59,9 @@
 #include <netinet/udp_var.h>
 #endif
 #include <CommonCrypto/CommonDigest.h>
+
+#include "compat.h"
+
 #define SHA512_Update(a, b, c)	(CC_SHA512_Update((a), (b), (c)))
 #define SHA512_Init(xxx) (CC_SHA512_Init((xxx)))
 #define SHA512_Final(xxx, yyy) (CC_SHA512_Final((xxx), (yyy)))

@@ -36,7 +36,7 @@ void get_input_line(char *prompt, char **result) {
         return;
     }
     if (buf[strlen(buf) - 1] == '\n') {
-        buf[strlen(buf) - 1] = '\0';
+        buf[strlen(buf) - 1] = 0;
     }
     *result = strdup(buf);
 }

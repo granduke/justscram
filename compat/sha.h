@@ -64,8 +64,6 @@
 #define __bounded__(x, y, z)
 #endif
 
-#include <openssl/opensslconf.h>
-
 #ifdef  __cplusplus
 extern "C" {
 #endif

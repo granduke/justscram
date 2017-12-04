@@ -12,7 +12,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <openssl/opensslconf.h>
+#include "sha.h"
+#include "compat.h"
 
 #if !defined(OPENSSL_NO_SHA) && !defined(OPENSSL_NO_SHA512)
 /*
@@ -50,10 +51,6 @@
  * 16-bit platforms.
  *					<appro@fy.chalmers.se>
  */
-
-#include <openssl/crypto.h>
-#include <openssl/opensslv.h>
-#include <openssl/sha.h>
 
 #if !defined(__STRICT_ALIGNMENT) || defined(SHA512_ASM)
 #define SHA512_BLOCK_CAN_MANAGE_UNALIGNED_DATA

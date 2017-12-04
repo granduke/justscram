@@ -69,8 +69,7 @@ static const char generate_nonce_char() {
 }
 
 static char* generate_nonce() {
-    char* nonce = (char *)malloc(NONCE_SIZE + 1);
-    nonce[NONCE_SIZE] = '\0';
+    char* nonce = (char *)calloc(NONCE_SIZE + 1, 1);
     for (int i = 0; i < NONCE_SIZE; i++) {
         nonce[i] = generate_nonce_char();
     }
@@ -103,10 +102,10 @@ int gen_auth_message(char *server_first, char *username, char *client_nonce, cha
     /* nonce = "r=" c-nonce [s-nonce] */
     /* username = "n=" saslname */
     asprintf(auth_message, "n=%s,r=%s,%s,c=%s,r=%s%s", username, client_nonce, server_first, channel_binding_encoded, client_nonce, server_nonce);
-    debug_printf("\n\nclient first message bare n=%s,r=%s\n", username, client_nonce);
+    debug_printf("client first message bare n=%s,r=%s\n", username, client_nonce);
     debug_printf("server first: %s\n", server_first);
     debug_printf("client final message without proof c=%s,r=%s%s\n", channel_binding_encoded, client_nonce, server_nonce);
-    debug_printf("auth message %s\n\n\n", *auth_message);
+    debug_printf("auth message %s\n", *auth_message);
     return SCRAM_OK;
 }
 
@@ -167,6 +166,7 @@ int scram_calculate_server_signature(char *server_first_decoded, char *username,
 /****************************************************/
 
 int scram_client_first(char* username, char **result, char **client_nonce) {
+    debug_printf("scram_client_first\n");
     char *msg;
 #ifdef DEBUG_STATIC_VALUES
     *client_nonce = strdup("fyko+d2lbbFgONRv9qkxdawL");
@@ -174,14 +174,16 @@ int scram_client_first(char* username, char **result, char **client_nonce) {
     *client_nonce = generate_nonce();
 #endif
     asprintf(&msg, "n,,n=%s,r=%s", username, *client_nonce);
-    debug_printf("client first %s\n", msg);
+    debug_printf("client first %s LENGTH %d\n", msg, strlen(msg));
     size_t out_len;
     *result = (char *)base64_encode((unsigned char*)msg, strlen(msg), &out_len);
+    debug_printf("client first encoded %s LENGTH %d\n", *result, strlen(*result));
     freezero(msg, out_len);
     return SCRAM_OK;
 }
 
 int scram_handle_client_first(char *client_first, char **username, char **client_nonce) {
+    debug_printf("scram_handle_client_first %s length %d\n", client_first, strlen(client_first));
     if (!strlen(client_first)) {
         return SCRAM_FAIL;
     }
@@ -189,7 +191,7 @@ int scram_handle_client_first(char *client_first, char **username, char **client
     char *strbegin, *strparts, *token, *buf;
     size_t client_first_decoded_len;
     char *client_first_decoded = (char *)base64_decode((unsigned char *)client_first, strlen(client_first), &client_first_decoded_len);
-    debug_printf("got client first: %s\n", client_first_decoded);
+    debug_printf("got client first: %s length %d\n", client_first_decoded, client_first_decoded_len);
     char *first_char = strndup(client_first_decoded, 1);
     strbegin = strparts = strdup(client_first_decoded);
     freezero(client_first_decoded, client_first_decoded_len);
@@ -227,6 +229,7 @@ int scram_handle_client_first(char *client_first, char **username, char **client
 }
 
 int scram_server_first(int user_iteration_count, char *user_salt_b64, char *client_nonce, char **result, char **server_first_decoded, char **server_nonce) {
+    debug_printf("scram_server_first\n");
 #ifdef DEBUG_STATIC_VALUES
     *server_nonce = strdup("3rfcNHYJY1ZVvWVs7j");
 #else
@@ -242,10 +245,14 @@ int scram_server_first(int user_iteration_count, char *user_salt_b64, char *clie
 }
 
 int scram_handle_server_first(char *server_first, char *client_nonce, char **server_first_decoded, char **combined_nonce, char **server_nonce, char **user_salt, int *iteration_count) {
+    debug_printf("scram_handle_server_first\n");
     int found_combined_nonce = 0, found_user_salt = 0, found_iteration_count = 0;
     char *strbegin, *strparts, *token, *buf;
     size_t server_first_decoded_len;
+    debug_printf("scram_handle_server_first\n");
+    debug_printf("server_first is %s\n", server_first);
     *server_first_decoded = (char *)base64_decode((unsigned char *)server_first, strlen(server_first), &server_first_decoded_len);
+    debug_printf("server_first_decoded is %s\n", *server_first_decoded);
     strbegin = strparts = strdup(*server_first_decoded);
     while ((token = strsep(&strparts, ",")) != NULL) {
         buf = strndup(token, 2);
@@ -288,6 +295,7 @@ int scram_handle_server_first(char *server_first, char *client_nonce, char **ser
 }
 
 int scram_client_final(char *server_first_decoded, char *username, unsigned char *scram_salted_password, char *client_nonce, char *server_nonce, char *channel_binding, char **result) {
+    debug_printf("scram_client_final\n");
     char *client_proof_encoded;
     size_t client_proof_encoded_len;
     char *msg;
@@ -311,9 +319,10 @@ int scram_client_final(char *server_first_decoded, char *username, unsigned char
 }
 
 int scram_handle_client_final(char *client_final, char *server_first, char *username, unsigned char *scram_salted_password, char *client_nonce, char *server_nonce) {
+    debug_printf("scram_handle_client_final %s length %d\n", client_final, strlen(client_final));
     size_t out_len;
     char *client_final_decoded = (char *)base64_decode((unsigned char *)client_final, strlen(client_final), &out_len);
-    debug_printf("got client final: %s\n", client_final_decoded);
+    debug_printf("got client final: %s length %d\n", client_final_decoded, out_len);
     char *strbegin, *strparts, *token, *buf;
     int found_channel_binding = 0, found_combined_nonce = 0, found_client_proof = 0;
     char *client_proof_encoded;
@@ -384,6 +393,7 @@ int scram_handle_client_final(char *client_final, char *server_first, char *user
 }
 
 int scram_server_final(char *server_first_decoded, char *username, unsigned char *scram_salted_password, char *client_nonce, char *server_nonce, char *channel_binding, char **result) {
+    debug_printf("scram_server_final\n");
     size_t channel_binding_encoded_len;
     char *msg;
     size_t out_len;
@@ -404,6 +414,7 @@ int scram_server_final(char *server_first_decoded, char *username, unsigned char
 }
 
 int scram_handle_server_final(char *server_final, char *server_first_decoded, char *username, unsigned char *scram_salted_password, char *client_nonce, char *server_nonce, char *channel_binding) {
+    debug_printf("scram_handle_server_final\n");
     size_t channel_binding_encoded_len;
     unsigned char *calc_server_signature = (unsigned char *)malloc(20);
     char *server_signature_encoded;
@@ -415,6 +426,7 @@ int scram_handle_server_final(char *server_final, char *server_first_decoded, ch
     freezero(channel_binding_encoded, channel_binding_encoded_len);
     size_t out_len;
     char *decode_server_final = (char *)base64_decode((unsigned char *)server_final, strlen(server_final), &out_len);
+    debug_printf("Got server final: %s\n", decode_server_final);
     char *strbegin, *strparts, *token, *buf;
     int signature_differences;
     strbegin = strparts = strdup(decode_server_final);
