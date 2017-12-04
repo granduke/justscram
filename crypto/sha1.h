@@ -6,15 +6,11 @@
  * 100% Public Domain
  */
 
-#ifndef SCRAM_API
-#ifdef __cplusplus
-#define SCRAM_API extern "C"
-#else
-#define SCRAM_API
-#endif
-#endif
-
 #include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef _SHA1_H_
 #define _SHA1_H_
@@ -28,9 +24,13 @@ typedef struct {
 	unsigned char	buffer[SHA1_BLOCK_LENGTH];
 } SHA1_CTX;
 
-SCRAM_API void SHA1Init(SHA1_CTX * context);
-SCRAM_API void SHA1Transform(uint32_t state[5], const unsigned char buffer[SHA1_BLOCK_LENGTH]);
-SCRAM_API void SHA1Update(SHA1_CTX *context, const unsigned char *data, unsigned int len);
-SCRAM_API void SHA1Final(unsigned char digest[SHA1_DIGEST_LENGTH], SHA1_CTX *context);
+void SHA1Init(SHA1_CTX * context);
+void SHA1Transform(uint32_t state[5], const unsigned char buffer[SHA1_BLOCK_LENGTH]);
+void SHA1Update(SHA1_CTX *context, const unsigned char *data, unsigned int len);
+void SHA1Final(unsigned char digest[SHA1_DIGEST_LENGTH], SHA1_CTX *context);
 
 #endif /* _SHA1_H_ */
+
+#ifdef __cplusplus
+}
+#endif

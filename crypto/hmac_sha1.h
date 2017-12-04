@@ -18,16 +18,17 @@
 
 #include "sha1.h"
 
-#ifndef SCRAM_API
 #ifdef __cplusplus
-#define SCRAM_API extern "C"
-#else
-#define SCRAM_API
-#endif
+extern "C" {
 #endif
 
 /*
  * HMAC-SHA-1 (from RFC 2202).
  */
-SCRAM_API void hmac_sha1(const u_int8_t *, size_t, const u_int8_t *,
+void hmac_sha1(const u_int8_t *, size_t, const u_int8_t *,
     size_t, u_int8_t []);
+
+#ifdef __cplusplus
+}
+#endif
+
