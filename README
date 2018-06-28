@@ -19,3 +19,5 @@ Still left TODO:
 * Fail all the places we should
 * SHA-256 support
 * Reorganize SHA-256 and SHA-512 into sha2/ directory
+* Windows support
+* Use libbsd instead of maintaining our own https://libbsd.freedesktop.org/
