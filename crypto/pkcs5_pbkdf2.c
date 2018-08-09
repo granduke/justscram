@@ -20,6 +20,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <limits.h>
 
 #include "sha1.h"
 #include "hmac_sha1.h"
