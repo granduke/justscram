@@ -193,7 +193,7 @@ int scram_handle_client_first(char *client_first, char **username, char **client
     char *client_first_decoded = (char *)base64_decode((unsigned char *)client_first, strlen(client_first), &client_first_decoded_len);
     debug_printf("got client first: %s length %d\n", client_first_decoded, client_first_decoded_len);
     char *first_char = strndup(client_first_decoded, 1);
-    strbegin = strparts = strdup(client_first_decoded);
+    strbegin = strparts = strndup(client_first_decoded, client_first_decoded_len);
     freezero(client_first_decoded, client_first_decoded_len);
     while ((token = strsep(&strparts, ",")) != NULL) {
         buf = strndup(token, 2);
@@ -219,7 +219,7 @@ int scram_handle_client_first(char *client_first, char **username, char **client
     if (strcmp(first_char, "n") != 0 && strcmp(first_char, "y") != 0 && strcmp(first_char, "p") != 0) {
         return SCRAM_FAIL;
     }
-
+    free(first_char);
     if (found_user && found_nonce) {
         return SCRAM_OK;
     }

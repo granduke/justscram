@@ -21,3 +21,4 @@ Still left TODO:
 * Reorganize SHA-256 and SHA-512 into sha2/ directory
 * Windows support
 * Use libbsd instead of maintaining our own https://libbsd.freedesktop.org/
+* Validate null termination of base64 decoder
