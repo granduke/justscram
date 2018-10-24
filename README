@@ -17,8 +17,9 @@ Still left TODO:
 * SASLprep
 * Test result of every malloc (and asprintf)
 * Fail all the places we should
-* SHA-256 support
+* SHA-256 support https://tools.ietf.org/html/rfc7677
 * Reorganize SHA-256 and SHA-512 into sha2/ directory
 * Windows support
 * Use libbsd instead of maintaining our own https://libbsd.freedesktop.org/
 * Validate null termination of base64 decoder
+* Support varying lengths of nonce
