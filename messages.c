@@ -173,12 +173,12 @@ int scram_client_first(char* username, char **result, char **client_nonce) {
 #else
     *client_nonce = generate_nonce();
 #endif
-    asprintf(&msg, "n,,n=%s,r=%s", username, *client_nonce);
+    int msg_len = asprintf(&msg, "n,,n=%s,r=%s", username, *client_nonce);
     debug_printf("client first %s LENGTH %d\n", msg, strlen(msg));
     size_t out_len;
     *result = (char *)base64_encode((unsigned char*)msg, strlen(msg), &out_len);
     debug_printf("client first encoded %s LENGTH %d\n", *result, strlen(*result));
-    freezero(msg, out_len);
+    freezero(msg, msg_len);
     return SCRAM_OK;
 }
 
