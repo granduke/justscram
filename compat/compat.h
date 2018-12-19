@@ -1,3 +1,6 @@
+#ifndef SCRAM_COMPAT_H
+#define SCRAM_COMPAT_H
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -84,4 +87,6 @@ extern "C" {
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif

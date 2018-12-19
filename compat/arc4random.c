@@ -63,8 +63,8 @@ static struct _rs {
 
 /* Maybe be preserved in fork children, if _rs_allocate() decides. */
 static struct _rsx {
-	chacha_ctx	rs_chacha;	/* chacha context for random keystream */
-	u_char		rs_buf[RSBUFSZ];	/* keystream blocks */
+	chacha_ctx      rs_chacha;       /* chacha context for random keystream */
+	unsigned char   rs_buf[RSBUFSZ]; /* keystream blocks */
 } *rsx;
 
 static inline int _rs_allocate(struct _rs **, struct _rsx **);
