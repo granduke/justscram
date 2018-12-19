@@ -18,7 +18,12 @@
 
 #include <sys/param.h>
 #include <string.h>
+#ifdef _WIN32
+#define bzero(s, n) memset((s), 0, (n))
+#define bcopy(s1, s2, n) memmove((s2), (s1), (n))
+#else
 #include <strings.h>
+#endif
 
 #include "hmac_sha1.h"
 
