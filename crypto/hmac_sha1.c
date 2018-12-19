@@ -16,12 +16,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/param.h>
 #include <string.h>
 #ifdef _WIN32
 #define bzero(s, n) memset((s), 0, (n))
 #define bcopy(s1, s2, n) memmove((s2), (s1), (n))
 #else
+#include <sys/param.h>
 #include <strings.h>
 #endif
 
