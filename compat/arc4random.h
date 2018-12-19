@@ -1,7 +1,10 @@
 #ifndef LIBCRYPTOCOMPAT_ARC4RANDOM_H
 #define LIBCRYPTOCOMPAT_ARC4RANDOM_H
 
+#ifdef _WIN32
+#else
 #include <sys/param.h>
+#endif
 
 #if defined(_AIX)
 #include "arc4random_aix.h"

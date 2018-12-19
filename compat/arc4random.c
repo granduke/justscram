@@ -29,9 +29,13 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef _WIN32
+#else
 #include <unistd.h>
-#include <sys/types.h>
 #include <sys/time.h>
+#endif
+#include <sys/types.h>
 
 #define KEYSTREAM_ONLY
 #include "chacha_private.h"

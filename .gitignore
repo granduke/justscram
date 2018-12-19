@@ -9,3 +9,4 @@ cmake_install.cmake
 compile_commands.json
 libJustSCRAM.a
 testscram
+build/
