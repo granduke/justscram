@@ -25,7 +25,7 @@ extern "C" {
 /*
  * HMAC-SHA-1 (from RFC 2202).
  */
-void hmac_sha1(const uint8_t *, size_t, const u_int8_t *,
+void hmac_sha1(const uint8_t *, size_t, const uint8_t *,
     size_t, uint8_t []);
 
 #ifdef __cplusplus

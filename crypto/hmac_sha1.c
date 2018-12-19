@@ -26,7 +26,7 @@
  * HMAC-SHA-1 (from RFC 2202).
  */
 void
-hmac_sha1(const uint8_t *text, size_t text_len, const u_int8_t *key,
+hmac_sha1(const uint8_t *text, size_t text_len, const uint8_t *key,
     size_t key_len, uint8_t digest[SHA1_DIGEST_LENGTH])
 {
 	SHA1_CTX ctx;
