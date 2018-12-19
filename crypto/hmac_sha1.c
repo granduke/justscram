@@ -26,12 +26,12 @@
  * HMAC-SHA-1 (from RFC 2202).
  */
 void
-hmac_sha1(const u_int8_t *text, size_t text_len, const u_int8_t *key,
-    size_t key_len, u_int8_t digest[SHA1_DIGEST_LENGTH])
+hmac_sha1(const uint8_t *text, size_t text_len, const u_int8_t *key,
+    size_t key_len, uint8_t digest[SHA1_DIGEST_LENGTH])
 {
 	SHA1_CTX ctx;
-	u_int8_t k_pad[SHA1_BLOCK_LENGTH];
-	u_int8_t tk[SHA1_DIGEST_LENGTH];
+	uint8_t k_pad[SHA1_BLOCK_LENGTH];
+	uint8_t tk[SHA1_DIGEST_LENGTH];
 	int i;
 
 	if (key_len > SHA1_BLOCK_LENGTH) {

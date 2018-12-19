@@ -56,11 +56,11 @@ pkcs5_pbkdf2(const char *pass, size_t pass_len, const uint8_t *salt,
 		asalt[salt_len + 1] = (count >> 16) & 0xff;
 		asalt[salt_len + 2] = (count >> 8) & 0xff;
 		asalt[salt_len + 3] = count & 0xff;
-		hmac_sha1(asalt, salt_len + 4, (const u_int8_t *)pass, pass_len, d1);
+		hmac_sha1(asalt, salt_len + 4, (const uint8_t *)pass, pass_len, d1);
 		memcpy(obuf, d1, sizeof(obuf));
 
 		for (i = 1; i < rounds; i++) {
-			hmac_sha1(d1, sizeof(d1), (const u_int8_t *)pass, pass_len, d2);
+			hmac_sha1(d1, sizeof(d1), (const uint8_t *)pass, pass_len, d2);
 			memcpy(d1, d2, sizeof(d1));
 			for (j = 0; j < sizeof(obuf); j++)
 				obuf[j] ^= d1[j];

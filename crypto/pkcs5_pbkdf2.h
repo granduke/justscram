@@ -30,4 +30,4 @@
 #endif
 
 SCRAM_API int pkcs5_pbkdf2(const char *, size_t, const char *, size_t,
-    u_int8_t *, size_t, unsigned int);
+    uint8_t *, size_t, unsigned int);
